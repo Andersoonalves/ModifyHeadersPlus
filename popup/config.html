@@ -150,32 +150,38 @@
         <!-- GLOBAL RULES SECTION -->
         <div class="rules-section" id="global_rules_section">
           <div class="section-header drop-zone" id="global_rules_drop_zone">
-            <h4><span class="glyphicon glyphicon-globe"></span> Global Rules <small>(apply to all URLs)</small></h4>
+            <h4>
+              <span class="glyphicon glyphicon-chevron-down section-toggle" id="global_toggle"></span>
+              <span class="glyphicon glyphicon-globe"></span> Global Rules <small>(apply to all URLs)</small>
+            </h4>
           </div>
-          <table class="rules-table">
-            <thead>
-              <tr>
-                <th></th>
-                <th>URL Filter</th>
-                <th>Action</th>
-                <th>Header Name</th>
-                <th>Header Value</th>
-                <th class="col-comment">Comment</th>
-                <th>Apply On</th>
-                <th>Status</th>
-                <th>Group</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="global_rules_tab">
-            </tbody>
-          </table>
+          <div class="section-content" id="global_content">
+            <table class="rules-table">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>URL Filter</th>
+                  <th>Action</th>
+                  <th>Header Name</th>
+                  <th>Header Value</th>
+                  <th class="col-comment">Comment</th>
+                  <th>Apply On</th>
+                  <th>Status</th>
+                  <th>Group</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="global_rules_tab">
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <!-- GROUP RULES SECTION -->
         <div class="rules-section" id="group_rules_section" hidden>
           <div class="section-header drop-zone" id="group_rules_drop_zone">
             <h4 id="group_rules_title">
+              <span class="glyphicon glyphicon-chevron-down section-toggle" id="group_toggle"></span>
               <span class="group-color-dot" id="group_color_dot"></span>
               <span id="group_rules_name">Group Rules</span>
             </h4>
@@ -187,6 +193,45 @@
                 <span class="glyphicon glyphicon-pencil"></span> Edit Group
               </button>
             </div>
+          </div>
+          
+          <div class="section-content" id="group_content">
+            <!-- Group URL Filters (inline editable) -->
+            <div class="group-filters-bar" id="group_filters_bar">
+              <div class="group-filter-item">
+                <label>Default URL Filter:</label>
+                <input type="text" id="inline_default_url_filter" class="form_control" placeholder="applied to new rules">
+              </div>
+              <div class="group-filter-item">
+                <label>Users URL Filters:</label>
+                <div id="inline_users_url_filters" class="inline-filters-list">
+                  <!-- Dynamic filter inputs -->
+                </div>
+                <button type="button" class="btn btn-default btn-xs" id="add_inline_user_filter">
+                  <span class="glyphicon glyphicon-plus"></span> Add
+                </button>
+              </div>
+            </div>
+
+            <table class="rules-table">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>URL Filter</th>
+                  <th>Action</th>
+                  <th>Header Name</th>
+                  <th>Header Value</th>
+                  <th class="col-comment">Comment</th>
+                  <th>Apply On</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="group_rules_tab">
+              </tbody>
+            </table>
+          </div>
+        </div>
           </div>
           
           <!-- Group URL Filters (inline editable) -->

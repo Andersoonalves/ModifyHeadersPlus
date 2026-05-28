@@ -667,6 +667,8 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 8px 0;
+  cursor: pointer;
+  user-select: none;
 }
 
 .section-header h4 {
@@ -681,6 +683,27 @@ body {
 .section-header h4 small {
   font-weight: normal;
   color: #999;
+}
+
+.section-toggle {
+  transition: transform 0.2s;
+  color: #999;
+  font-size: 12px;
+  margin-right: 8px;
+}
+
+.section-toggle.collapsed {
+  transform: rotate(-90deg);
+}
+
+.section-content {
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.section-content.collapsed {
+  max-height: 0 !important;
+  overflow: hidden;
 }
 
 .section-actions {

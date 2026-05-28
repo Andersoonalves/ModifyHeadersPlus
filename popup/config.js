@@ -271,6 +271,31 @@ function setupEventListeners() {
     document.getElementById('search_rules').addEventListener('input', function () {
         renderRules();
     });
+
+    // Collapse/Expand sections
+    setupSectionToggle('global_rules_drop_zone', 'global_content', 'global_toggle');
+}
+
+function setupSectionToggle(headerId, contentId, toggleId) {
+    let header = document.getElementById(headerId);
+    let content = document.getElementById(contentId);
+    let toggle = document.getElementById(toggleId);
+    
+    if (!header || !content || !toggle) return;
+    
+    header.addEventListener('click', function (e) {
+        // Don't toggle if clicking on buttons inside the header
+        if (e.target.closest('.section-actions') || e.target.closest('.btn')) return;
+        
+        let isCollapsed = content.classList.contains('collapsed');
+        if (isCollapsed) {
+            content.classList.remove('collapsed');
+            toggle.classList.remove('collapsed');
+        } else {
+            content.classList.add('collapsed');
+            toggle.classList.add('collapsed');
+        }
+    });
 }
 
 // ===========================
@@ -679,6 +704,9 @@ function setupGroupRulesDropZone(groupId) {
             openEditGroupEditor(currentFilter);
         }
     });
+
+    // Setup collapse toggle for group section
+    setupSectionToggle('group_rules_drop_zone', 'group_content', 'group_toggle');
 }
 
 // ===========================

@@ -173,7 +173,39 @@ function set_cookie_modify_cookie_value(original_set_cookie_header_content, key,
  */
 
 function log(message) {
-    console.log(new Date() + ' SimpleModifyHeader : ' + message);
+    console.log(new Date() + ' ModifyHeadersANDIN : ' + message);
+}
+
+/*
+ * Check if a URL matches a group's URL patterns
+ */
+function doesUrlMatchGroup(url, groupId) {
+    if (!groupId) return true; // Global rule
+    if (!config.groups) return true;
+    let group = config.groups.find(g => g.id === groupId);
+    if (!group || group.status !== 'on') return false;
+    // Check if URL matches any of the group's patterns
+    for (let pattern of group.urls) {
+        if (matchUrlPattern(url, pattern)) return true;
+    }
+    return false;
+}
+
+/*
+ * Simple URL pattern matching (Chrome match pattern syntax)
+ */
+function matchUrlPattern(url, pattern) {
+    pattern = pattern.trim();
+    if (pattern === '' || pattern === '*') return true;
+    // Convert Chrome match pattern to regex
+    let regexStr = pattern
+        .replace(/\./g, '\\.')
+        .replace(/\*/g, '.*');
+    try {
+        return new RegExp('^' + regexStr + '$').test(url);
+    } catch (e) {
+        return url.includes(pattern.replace(/\*/g, ''));
+    }
 }
 
 /*
@@ -186,8 +218,8 @@ function rewriteRequestHeader(e) {
         if (
             to_modify.status === 'on' &&
             to_modify.apply_on === 'req' &&
-            (!config.use_url_contains ||
-                (config.use_url_contains && doesUrlContainsAnUrlContains(e.url, to_modify.url_contains)))
+            doesUrlMatchGroup(e.url, to_modify.group_id) &&
+            (!config.use_url_contains || doesUrlContainsAnUrlContains(e.url, to_modify.url_contains))
         ) {
             if (to_modify.action === 'add') {
                 let new_header = {name: to_modify.header_name, value: to_modify.header_value};
@@ -300,7 +332,8 @@ function rewriteResponseHeader(e) {
         if (
             to_modify.status === 'on' &&
             to_modify.apply_on === 'res' &&
-            (!config.use_url_contains || (config.use_url_contains && doesUrlContainsAnUrlContains(e.url, to_modify.url_contains)))
+            doesUrlMatchGroup(e.url, to_modify.group_id) &&
+            (!config.use_url_contains || doesUrlContainsAnUrlContains(e.url, to_modify.url_contains))
         ) {
             if (to_modify.action === 'add') {
                 let new_header = {name: to_modify.header_name, value: to_modify.header_value};
@@ -437,18 +470,38 @@ function notify(message) {
 }
 
 /*
+ * Collect all URL patterns from groups (format 2.0) or target_page (legacy).
+ */
+function getAllTargetUrls() {
+    let urls = [];
+    if (config.format_version === '2.0' && config.groups) {
+        config.groups.forEach(group => {
+            if (group.status === 'on') {
+                group.urls.forEach(url => {
+                    if (!urls.includes(url)) urls.push(url);
+                });
+            }
+        });
+    } else if (config.target_page) {
+        urls = config.target_page.split(';').map(u => u.trim()).filter(u => u !== '');
+    }
+    if (urls.length === 0) urls.push('*');
+    return urls;
+}
+
+/*
  * Add rewriteRequestHeader as a listener to onBeforeSendHeaders, only for the target pages.
  * Add rewriteResponseHeader as a listener to onHeadersReceived, only for the target pages.
  * Make it "blocking" so we can modify the headers.
  */
 function addListener() {
-    let target = config.target_page.replaceAll(' ', '');
-    if (target === '*' || target === '') target = '<all_urls>';
-    chrome.webRequest.onBeforeSendHeaders.addListener(rewriteRequestHeader, {urls: target.split(';')}, [
+    let urls = getAllTargetUrls();
+    let target = urls.map(u => u.replaceAll(' ', '')).map(u => (u === '*' || u === '') ? '<all_urls>' : u);
+    chrome.webRequest.onBeforeSendHeaders.addListener(rewriteRequestHeader, {urls: target}, [
         'blocking',
         'requestHeaders'
     ]);
-    chrome.webRequest.onHeadersReceived.addListener(rewriteResponseHeader, {urls: target.split(';')}, [
+    chrome.webRequest.onHeadersReceived.addListener(rewriteResponseHeader, {urls: target}, [
         'blocking',
         'responseHeaders'
     ]);

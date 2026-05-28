@@ -3,706 +3,1483 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
  * @author didierfred@gmail.com
+ * Refactored with Groups support
  */
 
-let line_number;
+// ===========================
+// STATE
+// ===========================
+
 let started;
-let show_comments;
-let use_url_contains;
-let input_field_style;
-let check_all;
-let import_flag = true;
+let show_comments = true;
 let debug_mode = false;
+let config = null;
+let currentFilter = 'all'; // 'all', 'global', or group id
+let editingGroupId = null;
+let ruleIdCounter = 1;
+let groupIdCounter = 1;
+let autoSaveTimer = null;
 
-
+// ===========================
+// INITIALIZATION
+// ===========================
 
 window.onload = function () {
     initConfigurationPage();
 };
 
 function initConfigurationPage() {
-    initGlobalValue();
-    // load configuration from local storage
-    loadFromBrowserStorage(['config'], function (result) {
-        if (result.config === undefined) config = getDefaultConfig();
-        else {
+    started = 'off';
+    loadFromBrowserStorage(['config', 'started'], function (result) {
+        if (result.started) started = result.started;
+
+        if (result.config === undefined) {
+            config = getDefaultConfig();
+        } else {
             config = JSON.parse(result.config);
-            if (useManifestV3) config = removeCookiesActionFromConfig(config); // in case config with cookie actions was saved before manifest V3
+            config = migrateConfig(config);
+            if (useManifestV3) config = removeCookiesActionFromConfig(config);
         }
+
+        // Init counters
+        groupIdCounter = config.groups ? config.groups.length + 1 : 1;
+        ruleIdCounter = config.headers.length + 1;
+
+        // Load settings
         if (config.debug_mode) {
             document.getElementById('debug_mode').checked = true;
             debug_mode = true;
         }
 
-        if (typeof config.show_comments === 'undefined') document.getElementById('show_comments').checked = true;
-        else if (config.show_comments) document.getElementById('show_comments').checked = true;
-        else show_comments = false;
-
-        if (config.use_url_contains) {
-            document.getElementById('use_url_contains').checked = true;
-            use_url_contains = true;
+        if (typeof config.show_comments === 'undefined') {
+            document.getElementById('show_comments').checked = true;
+            show_comments = true;
+        } else {
+            document.getElementById('show_comments').checked = config.show_comments;
+            show_comments = config.show_comments;
         }
 
-        for (let to_add of config.headers)
-            appendLine(
-                to_add.url_contains,
-                to_add.action,
-                to_add.header_name,
-                to_add.header_value,
-                to_add.comment,
-                to_add.apply_on,
-                to_add.status
-            );
-        document.getElementById('save_button').addEventListener('click', function (e) {
-            saveData();
-        });
-        document.getElementById('export_button').addEventListener('click', function (e) {
-            exportData();
-        });
-        document.getElementById('import_button').addEventListener('click', function (e) {
-            importData(e);
-        });
-        document.getElementById('append_button').addEventListener('click', function (e) {
-            appendData(e);
-        });
-        document.getElementById('parameters_button').addEventListener('click', function (e) {
-            showParametersScreen();
-        });
-        document.getElementById('add_button').addEventListener('click', function (e) {
-            appendLine('', 'add', '-', '-', '', 'req', 'on');
-        });
-        document.getElementById('start_img').addEventListener('click', function (e) {
-            startModify();
-        });
-        document.getElementById('targetPage').value = config.target_page;
-        checkTargetPageField();
-        document.getElementById('targetPage').addEventListener('keyup', function (e) {
-            checkTargetPageField();
-        });
-        document.getElementById('exit_parameters_screen_button').addEventListener('click', function (e) {
-            hideParametersScreen();
-        });
-        document.querySelector('#export_row_header').addEventListener('click', function (e) {
-            switchAllExportButtons();
-        });
+        // Render UI
+        renderGroupsList();
+        renderRules();
+        updateBadges();
+        updateStartStopIcon();
 
-        loadFromBrowserStorage(['started'], function (result) {
-            started = result.started;
-            if (started === 'on') document.getElementById('start_img').src = 'img/stop.png';
-        });
-
-        document.getElementById('show_comments').addEventListener('click', function (e) {
-            showCommentsClick();
-        });
-        document.getElementById('use_url_contains').addEventListener('click', function (e) {
-            useUrlContainsClick();
-        });
-        document.getElementById('debug_mode').addEventListener('click', function (e) {
-            clickOnDebugCheckBox();
-        });
-        reshapeTable();
+        // Event listeners
+        setupEventListeners();
     });
 }
 
 function getDefaultConfig() {
-    console.log('Load default config');
-    let headers = [];
-    headers.push({
-        url_contains: '',
-        action: 'add',
-        header_name: 'test-header-name',
-        header_value: 'test-header-value',
-        comment: 'test',
-        apply_on: 'req',
-        status: 'on'
-    });
     return {
-        format_version: '1.2',
-        target_page: 'https://httpbin.org/*',
-        headers: headers,
+        format_version: '2.0',
+        groups: [],
+        headers: [
+            {
+                id: 'rule_' + ruleIdCounter++,
+                group_id: null,
+                url_contains: '',
+                action: 'add',
+                header_name: 'test-header-name',
+                header_value: 'test-header-value',
+                comment: 'test',
+                apply_on: 'req',
+                status: 'on'
+            }
+        ],
         debug_mode: false,
-        use_url_contains: false
+        show_comments: true
     };
 }
 
-function initGlobalValue() {
-    line_number = 1;
-    started = 'off';
-    show_comments = true;
-    use_url_contains = false;
-    input_field_style = 'form_control input_field_small';
-    check_all = true;
-    import_flag = true;
+// ===========================
+// MIGRATION
+// ===========================
+
+function migrateConfig(config) {
+    if (config.format_version === '2.0') {
+        // Ensure default_url_filter and users_url_filter exist on all groups
+        if (config.groups) {
+            config.groups.forEach(group => {
+                if (!group.hasOwnProperty('default_url_filter')) {
+                    group.default_url_filter = '';
+                }
+                if (!group.hasOwnProperty('users_url_filter')) {
+                    group.users_url_filter = [];
+                }
+            });
+        }
+        return config;
+    }
+
+    let migrated = {
+        format_version: '2.0',
+        groups: [],
+        headers: [],
+        debug_mode: config.debug_mode || false,
+        show_comments: config.show_comments !== undefined ? config.show_comments : true
+    };
+
+    // Create a default group from target_page if it exists
+    if (config.target_page && config.target_page.trim() !== '' && config.target_page.trim() !== '*') {
+        let urls = config.target_page.split(';').map(u => u.trim()).filter(u => u !== '');
+        if (urls.length > 0) {
+            migrated.groups.push({
+                id: 'group_' + groupIdCounter++,
+                name: 'Default',
+                urls: urls,
+                status: 'on',
+                color: '#4CAF50'
+            });
+        }
+    }
+
+    // Migrate headers
+    let defaultGroupId = migrated.groups.length > 0 ? migrated.groups[0].id : null;
+    for (let header of config.headers) {
+        let migratedHeader = {
+            id: 'rule_' + ruleIdCounter++,
+            group_id: header.url_contains ? defaultGroupId : null,
+            url_contains: header.url_contains || '',
+            action: header.action,
+            header_name: header.header_name,
+            header_value: header.header_value,
+            comment: header.comment || '',
+            apply_on: header.apply_on || 'req',
+            status: header.status || 'on'
+        };
+        migrated.headers.push(migratedHeader);
+    }
+
+    return migrated;
 }
 
-function loadFromBrowserStorage(item, callback_function) {
-    chrome.storage.local.get(item, callback_function);
+function removeCookiesActionFromConfig(config) {
+    config.headers = config.headers.filter(h =>
+        h.action !== 'cookie_add_or_modify' && h.action !== 'cookie_delete'
+    );
+    return config;
 }
 
-function storeInBrowserStorage(item, callback_function) {
-    chrome.storage.local.set(item, callback_function);
+// ===========================
+// STORAGE
+// ===========================
+
+function loadFromBrowserStorage(item, callback) {
+    chrome.storage.local.get(item, callback);
 }
 
-/** PARAMETERS SCREEN MANAGEMENT **/
+function storeInBrowserStorage(item, callback) {
+    chrome.storage.local.set(item, callback);
+}
+
+// ===========================
+// EVENT LISTENERS
+// ===========================
+
+function setupEventListeners() {
+    // Header buttons
+    document.getElementById('start_img').addEventListener('click', startModify);
+    document.getElementById('export_button').addEventListener('click', exportData);
+    document.getElementById('import_button').addEventListener('click', importData);
+    document.getElementById('append_button').addEventListener('click', appendData);
+    document.getElementById('parameters_button').addEventListener('click', showParametersScreen);
+    document.getElementById('exit_parameters_screen_button').addEventListener('click', hideParametersScreen);
+    document.getElementById('save_button').addEventListener('click', saveData);
+
+    // Parameters
+    document.getElementById('debug_mode').addEventListener('click', function () {
+        debug_mode = this.checked;
+    });
+    document.getElementById('show_comments').addEventListener('click', function () {
+        show_comments = this.checked;
+        renderRules();
+    });
+
+    // Group management
+    document.getElementById('add_group_button').addEventListener('click', openNewGroupEditor);
+    document.getElementById('close_group_editor').addEventListener('click', closeGroupEditor);
+    document.getElementById('save_group_button').addEventListener('click', saveGroup);
+    document.getElementById('delete_group_button').addEventListener('click', deleteGroup);
+    document.getElementById('add_url_to_group').addEventListener('click', addUrlInputToEditor);
+    document.getElementById('add_user_url_filter').addEventListener('click', addUserUrlFilterInput);
+
+    // Color picker
+    document.getElementById('group_color_picker').addEventListener('input', function () {
+        document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
+    });
+    document.querySelectorAll('.color-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
+            this.classList.add('selected');
+            document.getElementById('group_color_picker').value = this.dataset.color;
+        });
+    });
+
+    // Filters
+    document.getElementById('filter_all').addEventListener('click', function () {
+        setFilter('all');
+    });
+    document.getElementById('filter_global').addEventListener('click', function () {
+        setFilter('global');
+    });
+
+    // Make global filter a drop target (to move rules from group to global)
+    let globalFilterBtn = document.getElementById('filter_global');
+    globalFilterBtn.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        this.classList.add('drop-target');
+    });
+    globalFilterBtn.addEventListener('dragleave', function () {
+        this.classList.remove('drop-target');
+    });
+    globalFilterBtn.addEventListener('drop', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.classList.remove('drop-target');
+        if (draggedRuleId) {
+            let rule = config.headers.find(h => h.id === draggedRuleId);
+            if (rule && rule.group_id) {
+                rule.group_id = null;
+                draggedRuleId = null;
+                draggedRow = null;
+                renderGroupsList();
+                renderRules();
+                updateBadges();
+                scheduleAutoSave();
+            }
+        }
+    });
+
+    // Group inline filters
+    document.getElementById('edit_group_btn').addEventListener('click', function() {
+        if (currentFilter !== 'all' && currentFilter !== 'global') {
+            openEditGroupEditor(currentFilter);
+        }
+    });
+    document.getElementById('toggle_group_rules_btn').addEventListener('click', toggleGroupRules);
+    document.getElementById('add_inline_user_filter').addEventListener('click', addInlineUserFilter);
+
+    // Add rule
+    document.getElementById('add_rule_button').addEventListener('click', addNewRule);
+
+    // Global rules drop zone (to move rules from group to global)
+    setupGlobalRulesDropZone();
+
+    // Search
+    document.getElementById('search_rules').addEventListener('input', function () {
+        renderRules();
+    });
+}
+
+// ===========================
+// FILTERS
+// ===========================
+
+function setFilter(filter) {
+    currentFilter = filter;
+
+    // Update filter buttons
+    document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+    if (filter === 'all') {
+        document.getElementById('filter_all').classList.add('active');
+    } else if (filter === 'global') {
+        document.getElementById('filter_global').classList.add('active');
+    } else {
+        let groupBtn = document.querySelector(`.group-item[data-group-id="${filter}"]`);
+        if (groupBtn) groupBtn.classList.add('active');
+    }
+
+    // Update group items
+    document.querySelectorAll('.group-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.groupId === filter);
+    });
+
+    renderRules();
+}
+
+// ===========================
+// GROUPS RENDERING
+// ===========================
+
+function renderGroupsList() {
+    let container = document.getElementById('groups_list');
+    container.innerHTML = '';
+
+    if (!config.groups) return;
+
+    config.groups.forEach((group, index) => {
+        let count = config.headers.filter(h => h.group_id === group.id).length;
+        let div = document.createElement('div');
+        div.className = 'group-item' + (currentFilter === group.id ? ' active' : '') + (group.status === 'off' ? ' group-status-off' : '');
+        div.dataset.groupId = group.id;
+        div.setAttribute('draggable', 'true');
+
+        div.innerHTML = `
+            <span class="group-color-dot" style="background:${group.color}"></span>
+            <span class="group-item-name" title="${escapeHtml(group.urls.join('\n'))}">${escapeHtml(group.name)}</span>
+            <span class="group-item-count">${count}</span>
+            <div class="group-item-actions">
+                <button class="group-action-btn edit-group-btn" title="Edit group">
+                    <span class="glyphicon glyphicon-pencil"></span>
+                </button>
+            </div>
+        `;
+
+        // Drag events for reordering groups
+        div.addEventListener('dragstart', function (e) {
+            draggedGroupId = group.id;
+            draggedRuleId = null;
+            this.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', group.id);
+        });
+        div.addEventListener('dragend', function () {
+            this.classList.remove('dragging');
+            draggedGroupId = null;
+            document.querySelectorAll('.group-item.drop-target').forEach(el => el.classList.remove('drop-target'));
+        });
+
+        // Drop target for reordering groups
+        div.addEventListener('dragover', function (e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            if (draggedGroupId && draggedGroupId !== group.id) {
+                this.classList.add('drop-target');
+            }
+        });
+        div.addEventListener('dragleave', function () {
+            this.classList.remove('drop-target');
+        });
+        div.addEventListener('drop', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.classList.remove('drop-target');
+
+            // Reorder group
+            if (draggedGroupId && draggedGroupId !== group.id) {
+                let fromIdx = config.groups.findIndex(g => g.id === draggedGroupId);
+                let toIdx = config.groups.findIndex(g => g.id === group.id);
+                if (fromIdx !== -1 && toIdx !== -1) {
+                    let [moved] = config.groups.splice(fromIdx, 1);
+                    config.groups.splice(toIdx, 0, moved);
+                    draggedGroupId = null;
+                    renderGroupsList();
+                    scheduleAutoSave();
+                }
+                return;
+            }
+
+            // Move rule to group
+            if (draggedRuleId) {
+                let rule = config.headers.find(h => h.id === draggedRuleId);
+                if (rule) {
+                    rule.group_id = group.id;
+                    draggedRuleId = null;
+                    draggedRow = null;
+                    renderGroupsList();
+                    renderRules();
+                    updateBadges();
+                    scheduleAutoSave();
+                }
+            }
+        });
+
+        div.addEventListener('click', function (e) {
+            if (e.target.closest('.edit-group-btn')) {
+                openEditGroupEditor(group.id);
+            } else {
+                setFilter(group.id);
+            }
+        });
+
+        container.appendChild(div);
+    });
+}
+
+function updateBadges() {
+    document.getElementById('badge_all').textContent = config.headers.length;
+    document.getElementById('badge_global').textContent = config.headers.filter(h => !h.group_id).length;
+}
+
+// ===========================
+// GROUP EDITOR
+// ===========================
+
+function openNewGroupEditor() {
+    editingGroupId = null;
+    document.getElementById('group_editor_title').textContent = 'New Group';
+    document.getElementById('group_name_input').value = '';
+    document.getElementById('group_status_toggle').checked = true;
+    document.getElementById('group_default_url_filter').value = '';
+    document.getElementById('group_color_picker').value = '#4CAF50';
+    document.getElementById('delete_group_button').hidden = true;
+
+    // Reset color picker
+    document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
+    document.querySelector('.color-btn[data-color="#4CAF50"]').classList.add('selected');
+
+    // Clear URLs
+    let urlsEditor = document.getElementById('urls_editor');
+    urlsEditor.innerHTML = '';
+    addUrlInputToEditor('');
+
+    // Clear Users URL Filters
+    let usersUrlFiltersEditor = document.getElementById('users_url_filters_editor');
+    usersUrlFiltersEditor.innerHTML = '';
+    addUserUrlFilterInput('');
+
+    document.getElementById('group_editor').hidden = false;
+    document.getElementById('rules_content').hidden = true;
+    document.getElementById('group_name_input').focus();
+}
+
+function openEditGroupEditor(groupId) {
+    let group = config.groups.find(g => g.id === groupId);
+    if (!group) return;
+
+    editingGroupId = groupId;
+    document.getElementById('group_editor_title').textContent = 'Edit Group';
+    document.getElementById('group_name_input').value = group.name;
+    document.getElementById('group_status_toggle').checked = group.status === 'on';
+    document.getElementById('group_default_url_filter').value = group.default_url_filter || '';
+    document.getElementById('delete_group_button').hidden = false;
+
+    // Set color
+    document.getElementById('group_color_picker').value = group.color || '#4CAF50';
+    document.querySelectorAll('.color-btn').forEach(b => {
+        b.classList.toggle('selected', b.dataset.color === group.color);
+    });
+
+    // Set URLs
+    let urlsEditor = document.getElementById('urls_editor');
+    urlsEditor.innerHTML = '';
+    group.urls.forEach(url => addUrlInputToEditor(url));
+
+    // Set Users URL Filters
+    let usersUrlFiltersEditor = document.getElementById('users_url_filters_editor');
+    usersUrlFiltersEditor.innerHTML = '';
+    if (group.users_url_filter && group.users_url_filter.length > 0) {
+        group.users_url_filter.forEach(filter => addUserUrlFilterInput(filter));
+    } else {
+        addUserUrlFilterInput('');
+    }
+
+    document.getElementById('group_editor').hidden = false;
+    document.getElementById('rules_content').hidden = true;
+    document.getElementById('group_name_input').focus();
+}
+
+function closeGroupEditor() {
+    document.getElementById('group_editor').hidden = true;
+    document.getElementById('rules_content').hidden = false;
+    editingGroupId = null;
+}
+
+function addUrlInputToEditor(url) {
+    if (typeof url !== 'string') url = '';
+    let urlsEditor = document.getElementById('urls_editor');
+    let row = document.createElement('div');
+    row.className = 'url-input-row';
+    row.innerHTML = `
+        <input type="text" class="form_control url-pattern-input" value="${escapeHtml(url)}" placeholder="https://example.com/*">
+        <button type="button" class="url-remove-btn" title="Remove">
+            <span class="glyphicon glyphicon-remove"></span>
+        </button>
+    `;
+    row.querySelector('.url-remove-btn').addEventListener('click', function () {
+        row.remove();
+    });
+    urlsEditor.appendChild(row);
+}
+
+function addUserUrlFilterInput(value) {
+    if (typeof value !== 'string') value = '';
+    let editor = document.getElementById('users_url_filters_editor');
+    let row = document.createElement('div');
+    row.className = 'url-input-row';
+    row.innerHTML = `
+        <input type="text" class="form_control user-url-filter-input" value="${escapeHtml(value)}" placeholder="e.g. /api/v1, /api/v2">
+        <button type="button" class="url-remove-btn" title="Remove">
+            <span class="glyphicon glyphicon-remove"></span>
+        </button>
+    `;
+    row.querySelector('.url-remove-btn').addEventListener('click', function () {
+        row.remove();
+    });
+    editor.appendChild(row);
+}
+
+function saveGroup() {
+    let name = document.getElementById('group_name_input').value.trim();
+    if (!name) {
+        alert('Please enter a group name.');
+        return;
+    }
+
+    let selectedColor = document.querySelector('.color-btn.selected');
+    let color = document.getElementById('group_color_picker').value || (selectedColor ? selectedColor.dataset.color : '#4CAF50');
+    let status = document.getElementById('group_status_toggle').checked ? 'on' : 'off';
+    let defaultUrlFilter = document.getElementById('group_default_url_filter').value.trim();
+
+    // Collect URLs
+    let urlInputs = document.querySelectorAll('.url-pattern-input');
+    let urls = [];
+    urlInputs.forEach(input => {
+        let val = input.value.trim();
+        if (val) urls.push(val);
+    });
+
+    if (urls.length === 0) {
+        urls.push('*');
+    }
+
+    // Collect Users URL Filters
+    let userUrlFilterInputs = document.querySelectorAll('.user-url-filter-input');
+    let usersUrlFilter = [];
+    userUrlFilterInputs.forEach(input => {
+        let val = input.value.trim();
+        if (val) usersUrlFilter.push(val);
+    });
+
+    if (editingGroupId) {
+        // Update existing group
+        let group = config.groups.find(g => g.id === editingGroupId);
+        if (group) {
+            group.name = name;
+            group.color = color;
+            group.urls = urls;
+            group.status = status;
+            group.default_url_filter = defaultUrlFilter;
+            group.users_url_filter = usersUrlFilter;
+            
+            // Apply default_url_filter to all rules in this group
+            if (defaultUrlFilter) {
+                config.headers.forEach(h => {
+                    if (h.group_id === editingGroupId && !h.url_contains) {
+                        h.url_contains = defaultUrlFilter;
+                    }
+                });
+            }
+        }
+    } else {
+        // Create new group
+        let newGroup = {
+            id: 'group_' + groupIdCounter++,
+            name: name,
+            urls: urls,
+            status: status,
+            color: color,
+            default_url_filter: defaultUrlFilter,
+            users_url_filter: usersUrlFilter
+        };
+        config.groups.push(newGroup);
+    }
+
+    closeGroupEditor();
+    renderGroupsList();
+    renderRules();
+    updateBadges();
+}
+
+function deleteGroup() {
+    if (!editingGroupId) return;
+    if (!confirm('Delete this group? Rules assigned to it will become global.')) return;
+
+    // Move rules to global
+    config.headers.forEach(h => {
+        if (h.group_id === editingGroupId) h.group_id = null;
+    });
+
+    config.groups = config.groups.filter(g => g.id !== editingGroupId);
+    if (currentFilter === editingGroupId) currentFilter = 'all';
+
+    closeGroupEditor();
+    renderGroupsList();
+    renderRules();
+    updateBadges();
+}
+
+// ===========================
+// GLOBAL RULES DROP ZONE
+// ===========================
+
+function setupGlobalRulesDropZone() {
+    let dropZone = document.getElementById('global_rules_drop_zone');
+    dropZone.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        this.classList.add('drag-hover');
+    });
+    dropZone.addEventListener('dragleave', function () {
+        this.classList.remove('drag-hover');
+    });
+    dropZone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.classList.remove('drag-hover');
+        if (draggedRuleId) {
+            let rule = config.headers.find(h => h.id === draggedRuleId);
+            if (rule && rule.group_id) {
+                rule.group_id = null;
+                draggedRuleId = null;
+                draggedRow = null;
+                renderGroupsList();
+                renderRules();
+                updateBadges();
+                scheduleAutoSave();
+            }
+        }
+    });
+}
+
+// ===========================
+// GROUP RULES DROP ZONE
+// ===========================
+
+function setupGroupRulesDropZone(groupId) {
+    let dropZone = document.getElementById('group_rules_drop_zone');
+    // Clone to remove old listeners
+    let newDropZone = dropZone.cloneNode(true);
+    dropZone.parentNode.replaceChild(newDropZone, dropZone);
+
+    newDropZone.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        this.classList.add('drag-hover');
+    });
+    newDropZone.addEventListener('dragleave', function () {
+        this.classList.remove('drag-hover');
+    });
+    newDropZone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.classList.remove('drag-hover');
+        if (draggedRuleId) {
+            let rule = config.headers.find(h => h.id === draggedRuleId);
+            if (rule) {
+                rule.group_id = groupId;
+                draggedRuleId = null;
+                draggedRow = null;
+                renderGroupsList();
+                renderRules();
+                updateBadges();
+                scheduleAutoSave();
+            }
+        }
+    });
+
+    // Re-attach the toggle and edit button listeners
+    document.getElementById('toggle_group_rules_btn').addEventListener('click', toggleGroupRules);
+    document.getElementById('edit_group_btn').addEventListener('click', function() {
+        if (currentFilter !== 'all' && currentFilter !== 'global') {
+            openEditGroupEditor(currentFilter);
+        }
+    });
+}
+
+// ===========================
+// GROUP FILTERS INLINE
+// ===========================
+
+function loadGroupFiltersInline(group) {
+    // Load default URL filter
+    let defaultInput = document.getElementById('inline_default_url_filter');
+    defaultInput.value = group.default_url_filter || '';
+    
+    // Remove old event listener
+    let newDefaultInput = defaultInput.cloneNode(true);
+    defaultInput.parentNode.replaceChild(newDefaultInput, defaultInput);
+    
+    // Add new event listener
+    newDefaultInput.addEventListener('change', function() {
+        group.default_url_filter = this.value.trim();
+        scheduleAutoSave();
+    });
+
+    // Load users URL filters
+    let filtersContainer = document.getElementById('inline_users_url_filters');
+    filtersContainer.innerHTML = '';
+    
+    let filters = group.users_url_filter || [];
+    filters.forEach((filter, index) => {
+        addInlineFilterChip(group, filtersContainer, filter, index);
+    });
+}
+
+function addInlineFilterChip(group, container, value, index) {
+    let chip = document.createElement('div');
+    chip.className = 'inline-filter-chip';
+    chip.innerHTML = `
+        <input type="text" value="${escapeHtml(value)}" placeholder="filter" data-index="${index}">
+        <span class="chip-remove" title="Remove">&times;</span>
+    `;
+    
+    let input = chip.querySelector('input');
+    input.addEventListener('change', function() {
+        let idx = parseInt(this.dataset.index);
+        if (group.users_url_filter && group.users_url_filter[idx] !== undefined) {
+            group.users_url_filter[idx] = this.value.trim();
+            // Re-render rules to update dropdowns
+            renderRules();
+            scheduleAutoSave();
+        }
+    });
+    
+    chip.querySelector('.chip-remove').addEventListener('click', function() {
+        let idx = parseInt(input.dataset.index);
+        if (group.users_url_filter) {
+            group.users_url_filter.splice(idx, 1);
+            loadGroupFiltersInline(group);
+            renderRules();
+            scheduleAutoSave();
+        }
+    });
+    
+    container.appendChild(chip);
+}
+
+function addInlineUserFilter() {
+    let group = config.groups.find(g => g.id === currentFilter);
+    if (!group) return;
+    
+    if (!group.users_url_filter) {
+        group.users_url_filter = [];
+    }
+    group.users_url_filter.push('');
+    loadGroupFiltersInline(group);
+}
+
+function toggleGroupRules() {
+    if (currentFilter === 'all' || currentFilter === 'global') return;
+    
+    let groupRules = config.headers.filter(h => h.group_id === currentFilter);
+    if (groupRules.length === 0) return;
+    
+    // Check if all rules are ON - if yes, turn all OFF; otherwise turn all ON
+    let allOn = groupRules.every(r => r.status === 'on');
+    let newStatus = allOn ? 'off' : 'on';
+    
+    groupRules.forEach(rule => {
+        rule.status = newStatus;
+    });
+    
+    renderRules();
+    scheduleAutoSave();
+}
+
+// ===========================
+// RULES RENDERING
+// ===========================
+
+function getFilteredRules(rules, searchTerm) {
+    if (!searchTerm) return rules;
+    searchTerm = searchTerm.toLowerCase();
+    return rules.filter(rule =>
+        (rule.header_name && rule.header_name.toLowerCase().includes(searchTerm)) ||
+        (rule.header_value && rule.header_value.toLowerCase().includes(searchTerm)) ||
+        (rule.comment && rule.comment.toLowerCase().includes(searchTerm)) ||
+        (rule.url_contains && rule.url_contains.toLowerCase().includes(searchTerm)) ||
+        (rule.action && rule.action.toLowerCase().includes(searchTerm))
+    );
+}
+
+function renderRules() {
+    let globalRules = config.headers.filter(h => !h.group_id);
+    let globalSection = document.getElementById('global_rules_section');
+    let groupSection = document.getElementById('group_rules_section');
+    let allGroupsSections = document.getElementById('all_groups_sections');
+    let filterLabel = document.getElementById('current_filter_label');
+    let filterInfo = document.getElementById('filter_info');
+    let searchInput = document.getElementById('search_rules');
+    let searchTerm = searchInput.value.trim();
+
+    // Clear dynamic group sections
+    allGroupsSections.innerHTML = '';
+
+    // Determine what to show
+    if (currentFilter === 'all') {
+        globalSection.hidden = false;
+        globalSection.classList.remove('collapsed');
+        groupSection.hidden = true;
+        searchInput.hidden = false;
+        filterLabel.textContent = 'All Rules';
+
+        let filteredGlobal = getFilteredRules(globalRules, searchTerm);
+        renderRulesTable('global_rules_tab', filteredGlobal, true);
+
+        let totalRules = filteredGlobal.length;
+
+        // Render each group section
+        if (config.groups) {
+            config.groups.forEach(group => {
+                let groupRules = config.headers.filter(h => h.group_id === group.id);
+                let filteredGroupRules = getFilteredRules(groupRules, searchTerm);
+                totalRules += filteredGroupRules.length;
+
+                let section = document.createElement('div');
+                section.className = 'rules-section';
+                section.innerHTML = `
+                    <div class="section-header">
+                        <h4>
+                            <span class="group-color-dot" style="background:${group.color}"></span>
+                            ${escapeHtml(group.name)}
+                            ${group.status === 'off' ? '<small>(disabled)</small>' : ''}
+                        </h4>
+                        <div class="section-actions">
+                            <button type="button" class="btn btn-warning btn-sm toggle-group-btn" data-group-id="${group.id}" title="Enable/Disable all">
+                                <span class="glyphicon glyphicon-off"></span>
+                            </button>
+                            <button type="button" class="btn btn-default btn-sm edit-group-inline-btn" data-group-id="${group.id}" title="Edit Group">
+                                <span class="glyphicon glyphicon-pencil"></span>
+                            </button>
+                        </div>
+                    </div>
+                    <table class="rules-table">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>URL Filter</th>
+                                <th>Action</th>
+                                <th>Header Name</th>
+                                <th>Header Value</th>
+                                <th class="col-comment">Comment</th>
+                                <th>Apply On</th>
+                                <th>Status</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="group_tab_${group.id}">
+                        </tbody>
+                    </table>
+                `;
+
+                // Event listeners for group buttons
+                section.querySelector('.toggle-group-btn').addEventListener('click', function() {
+                    toggleGroupRulesById(this.dataset.groupId);
+                });
+                section.querySelector('.edit-group-inline-btn').addEventListener('click', function() {
+                    openEditGroupEditor(this.dataset.groupId);
+                });
+
+                allGroupsSections.appendChild(section);
+                renderRulesTable('group_tab_' + group.id, filteredGroupRules, false);
+            });
+        }
+
+        filterInfo.textContent = `${totalRules} rules`;
+    } else if (currentFilter === 'global') {
+        globalSection.hidden = false;
+        globalSection.classList.remove('collapsed');
+        groupSection.hidden = true;
+        searchInput.hidden = false;
+        filterLabel.textContent = 'Global Rules';
+
+        let filteredGlobal = getFilteredRules(globalRules, searchTerm);
+        filterInfo.textContent = `${filteredGlobal.length} rules`;
+        renderRulesTable('global_rules_tab', filteredGlobal, true);
+    } else {
+        // Show specific group
+        let group = config.groups.find(g => g.id === currentFilter);
+        if (!group) {
+            currentFilter = 'all';
+            renderRules();
+            return;
+        }
+
+        globalSection.hidden = false;
+        globalSection.classList.add('collapsed');
+        groupSection.hidden = false;
+        searchInput.hidden = false;
+
+        let groupRules = config.headers.filter(h => h.group_id === currentFilter);
+        let filteredGroupRules = getFilteredRules(groupRules, searchTerm);
+        let filteredGlobalRules = getFilteredRules(globalRules, searchTerm);
+
+        filterLabel.textContent = group.name;
+        filterInfo.textContent = `${filteredGroupRules.length} group rules + ${filteredGlobalRules.length} global`;
+
+        document.getElementById('group_rules_name').textContent = group.name + ' Rules';
+        document.getElementById('group_color_dot').style.background = group.color;
+
+        // Setup drop zone on group rules section
+        setupGroupRulesDropZone(currentFilter);
+
+        // Load inline group filters
+        loadGroupFiltersInline(group);
+
+        renderRulesTable('global_rules_tab', filteredGlobalRules, true);
+        renderRulesTable('group_rules_tab', filteredGroupRules, false);
+    }
+}
+
+function toggleGroupRulesById(groupId) {
+    let groupRules = config.headers.filter(h => h.group_id === groupId);
+    if (groupRules.length === 0) return;
+    
+    let allOn = groupRules.every(r => r.status === 'on');
+    let newStatus = allOn ? 'off' : 'on';
+    
+    groupRules.forEach(rule => {
+        rule.status = newStatus;
+    });
+    
+    renderRules();
+    scheduleAutoSave();
+}
+
+function renderRulesTable(tbodyId, rules, showGroupColumn) {
+    let tbody = document.getElementById(tbodyId);
+    tbody.innerHTML = '';
+
+    rules.forEach(rule => {
+        let tr = document.createElement('tr');
+        tr.dataset.ruleId = rule.id;
+
+        let groupBadge = '';
+        if (showGroupColumn && rule.group_id) {
+            let group = config.groups.find(g => g.id === rule.group_id);
+            if (group) {
+                groupBadge = `<span class="rule-group-badge">
+                    <span class="group-color-dot" style="background:${group.color}"></span>
+                    ${escapeHtml(group.name)}
+                </span>`;
+            }
+        }
+
+        // Build URL Filter field - show select if group has users_url_filter options
+        let urlFilterHtml = '';
+        if (rule.group_id) {
+            let group = config.groups.find(g => g.id === rule.group_id);
+            if (group && group.users_url_filter && group.users_url_filter.length > 0) {
+                let options = '<option value="">(none)</option>';
+                if (group.default_url_filter) {
+                    options += `<option value="${escapeHtml(group.default_url_filter)}">${escapeHtml(group.default_url_filter)} (default)</option>`;
+                }
+                group.users_url_filter.forEach(filter => {
+                    let selected = rule.url_contains === filter ? 'selected' : '';
+                    options += `<option value="${escapeHtml(filter)}" ${selected}>${escapeHtml(filter)}</option>`;
+                });
+                // Add custom option if current value is not in the list
+                if (rule.url_contains && !group.users_url_filter.includes(rule.url_contains) && rule.url_contains !== group.default_url_filter) {
+                    options += `<option value="${escapeHtml(rule.url_contains)}" selected>${escapeHtml(rule.url_contains)} (custom)</option>`;
+                }
+                urlFilterHtml = `
+                    <select class="rule-select rule-url-contains-select">
+                        ${options}
+                        <option value="__custom__">Custom...</option>
+                    </select>
+                    <input class="rule-input rule-url-contains-custom" value="${escapeHtml(rule.url_contains)}" placeholder="custom filter" style="display:none; margin-top:4px; width:100%">
+                `;
+            } else {
+                urlFilterHtml = `<input class="rule-input rule-url-contains" value="${escapeHtml(rule.url_contains)}" placeholder="optional filter">`;
+            }
+        } else {
+            urlFilterHtml = `<input class="rule-input rule-url-contains" value="${escapeHtml(rule.url_contains)}" placeholder="optional filter">`;
+        }
+
+        tr.innerHTML = `
+            <td class="drag-handle" title="Drag to reorder">
+                <span class="glyphicon glyphicon-move"></span>
+            </td>
+            <td>
+                ${urlFilterHtml}
+            </td>
+            <td>
+                <select class="rule-select rule-action">
+                    <option value="add">Add</option>
+                    <option value="modify">Modify</option>
+                    <option value="delete">Delete</option>
+                    ${!useManifestV3 ? `
+                    <option value="cookie_add_or_modify">Cookie Add/Modify</option>
+                    <option value="cookie_delete">Cookie Delete</option>
+                    ` : ''}
+                </select>
+            </td>
+            <td>
+                <input class="rule-input rule-header-name" value="${escapeHtml(rule.header_name)}" placeholder="Header-Name" list="header_names_list">
+            </td>
+            <td>
+                <input class="rule-input rule-header-value" value="${escapeHtml(rule.header_value)}" placeholder="value">
+            </td>
+            <td class="col-comment" ${show_comments ? '' : 'style="display:none"'}>
+                <input class="rule-input rule-comment" value="${escapeHtml(rule.comment)}" placeholder="comment">
+            </td>
+            <td>
+                <select class="rule-select rule-apply-on">
+                    <option value="req">Request</option>
+                    <option value="res">Response</option>
+                </select>
+            </td>
+            <td>
+                <button type="button" class="rule-status-btn ${rule.status === 'on' ? 'on' : 'off'}">
+                    ${rule.status === 'on' ? 'ON' : 'OFF'}
+                </button>
+            </td>
+            ${showGroupColumn ? `<td>${groupBadge}</td>` : ''}
+            <td>
+                <button type="button" class="rule-btn rule-btn-delete" title="Delete">
+                    <span class="glyphicon glyphicon-trash"></span>
+                </button>
+            </td>
+        `;
+
+        // Set select values
+        tr.querySelector('.rule-action').value = rule.action;
+        tr.querySelector('.rule-apply-on').value = rule.apply_on;
+
+        // Handle URL filter select/custom input toggle
+        let urlSelect = tr.querySelector('.rule-url-contains-select');
+        let urlCustomInput = tr.querySelector('.rule-url-contains-custom');
+        if (urlSelect && urlCustomInput) {
+            // Set initial value
+            if (rule.url_contains && !Array.from(urlSelect.options).some(o => o.value === rule.url_contains && o.value !== '__custom__')) {
+                urlSelect.value = '__custom__';
+                urlCustomInput.style.display = 'block';
+            } else if (rule.url_contains) {
+                urlSelect.value = rule.url_contains;
+            }
+
+            urlSelect.addEventListener('change', function() {
+                if (this.value === '__custom__') {
+                    urlCustomInput.style.display = 'block';
+                    urlCustomInput.focus();
+                } else {
+                    urlCustomInput.style.display = 'none';
+                    urlCustomInput.value = this.value;
+                    updateRuleFromRow(rule.id, tr);
+                }
+            });
+
+            urlCustomInput.addEventListener('change', function() {
+                updateRuleFromRow(rule.id, tr);
+            });
+        }
+
+        // Event listeners
+        tr.querySelector('.rule-status-btn').addEventListener('click', function () {
+            toggleRuleStatus(rule.id, this);
+        });
+
+        tr.querySelector('.rule-btn-delete').addEventListener('click', function () {
+            deleteRule(rule.id);
+        });
+
+        // Drag and drop
+        tr.setAttribute('draggable', 'true');
+        tr.addEventListener('dragstart', handleDragStart);
+        tr.addEventListener('dragover', handleDragOver);
+        tr.addEventListener('dragenter', handleDragEnter);
+        tr.addEventListener('dragleave', handleDragLeave);
+        tr.addEventListener('drop', handleDrop);
+        tr.addEventListener('dragend', handleDragEnd);
+
+        // Update rule on input change
+        tr.querySelectorAll('input, select').forEach(el => {
+            el.addEventListener('change', function () {
+                updateRuleFromRow(rule.id, tr);
+            });
+        });
+
+        tbody.appendChild(tr);
+    });
+}
+
+// ===========================
+// RULE OPERATIONS
+// ===========================
+
+function addNewRule() {
+    let groupId = null;
+    if (currentFilter !== 'all' && currentFilter !== 'global') {
+        groupId = currentFilter;
+    }
+
+    // Get default_url_filter from group
+    let defaultUrlFilter = '';
+    if (groupId) {
+        let group = config.groups.find(g => g.id === groupId);
+        if (group && group.default_url_filter) {
+            defaultUrlFilter = group.default_url_filter;
+        }
+    }
+
+    let newRule = {
+        id: 'rule_' + ruleIdCounter++,
+        group_id: groupId,
+        url_contains: defaultUrlFilter,
+        action: 'add',
+        header_name: '',
+        header_value: '',
+        comment: '',
+        apply_on: 'req',
+        status: 'on'
+    };
+
+    config.headers.push(newRule);
+    renderRules();
+    updateBadges();
+
+    // Focus the new rule's header name input
+    setTimeout(() => {
+        let rows = document.querySelectorAll(`tr[data-rule-id="${newRule.id}"]`);
+        let lastRow = rows[rows.length - 1];
+        if (lastRow) {
+            let input = lastRow.querySelector('.rule-header-name');
+            if (input) input.focus();
+        }
+    }, 50);
+}
+
+function deleteRule(ruleId) {
+    config.headers = config.headers.filter(h => h.id !== ruleId);
+    renderRules();
+    updateBadges();
+    scheduleAutoSave();
+}
+
+function toggleRuleStatus(ruleId, button) {
+    let rule = config.headers.find(h => h.id === ruleId);
+    if (!rule) return;
+
+    rule.status = rule.status === 'on' ? 'off' : 'on';
+    button.className = 'rule-status-btn ' + rule.status;
+    button.textContent = rule.status === 'on' ? 'ON' : 'OFF';
+    scheduleAutoSave();
+}
+
+// ===========================
+// DRAG AND DROP
+// ===========================
+
+let draggedRow = null;
+let draggedRuleId = null;
+let draggedGroupId = null;
+
+function handleDragStart(e) {
+    draggedRow = this;
+    draggedRuleId = this.dataset.ruleId;
+    this.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', draggedRuleId);
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+}
+
+function handleDragEnter(e) {
+    e.preventDefault();
+    if (this !== draggedRow) {
+        this.classList.add('drag-over');
+    }
+}
+
+function handleDragLeave(e) {
+    this.classList.remove('drag-over');
+}
+
+function handleDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    this.classList.remove('drag-over');
+
+    if (draggedRow === this) return;
+
+    let targetRuleId = this.dataset.ruleId;
+    if (!draggedRuleId || !targetRuleId) return;
+
+    // Find indices in config
+    let fromIdx = config.headers.findIndex(h => h.id === draggedRuleId);
+    let toIdx = config.headers.findIndex(h => h.id === targetRuleId);
+    if (fromIdx === -1 || toIdx === -1) return;
+
+    // Move in config array
+    let [movedRule] = config.headers.splice(fromIdx, 1);
+    config.headers.splice(toIdx, 0, movedRule);
+
+    // Clear drag state
+    draggedRuleId = null;
+    draggedRow = null;
+
+    // Re-render
+    renderRules();
+    scheduleAutoSave();
+}
+
+function handleDragEnd(e) {
+    this.classList.remove('dragging');
+    document.querySelectorAll('.drag-over, .drop-target').forEach(el => el.classList.remove('drag-over', 'drop-target'));
+    draggedRow = null;
+    draggedRuleId = null;
+    draggedGroupId = null;
+}
+
+function updateRuleFromRow(ruleId, tr) {
+    let rule = config.headers.find(h => h.id === ruleId);
+    if (!rule) return;
+
+    // Handle URL filter - could be input or select
+    let urlSelect = tr.querySelector('.rule-url-contains-select');
+    let urlCustomInput = tr.querySelector('.rule-url-contains-custom');
+    let urlInput = tr.querySelector('.rule-url-contains');
+
+    if (urlSelect && urlCustomInput) {
+        if (urlSelect.value === '__custom__') {
+            rule.url_contains = urlCustomInput.value;
+        } else {
+            rule.url_contains = urlSelect.value;
+        }
+    } else if (urlInput) {
+        rule.url_contains = urlInput.value;
+    }
+
+    rule.action = tr.querySelector('.rule-action').value;
+    rule.header_name = tr.querySelector('.rule-header-name').value;
+    rule.header_value = tr.querySelector('.rule-header-value').value;
+    rule.apply_on = tr.querySelector('.rule-apply-on').value;
+
+    let commentEl = tr.querySelector('.rule-comment');
+    if (commentEl) rule.comment = commentEl.value;
+
+    scheduleAutoSave();
+}
+
+// ===========================
+// SAVE / LOAD
+// ===========================
+
+function scheduleAutoSave() {
+    if (autoSaveTimer) clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(function () {
+        syncAllRowsToConfig();
+        let toSave = {
+            format_version: '2.0',
+            groups: config.groups,
+            headers: config.headers,
+            debug_mode: debug_mode,
+            show_comments: show_comments
+        };
+        storeInBrowserStorage({ config: JSON.stringify(toSave) }, function () {
+            if (started === 'on') {
+                if (useManifestV3) applyConfigWithManifestV3();
+                else chrome.runtime.sendMessage('reload');
+            }
+            debug('Auto-saved config');
+        });
+    }, 1000);
+}
+
+function saveData() {
+    // Sync all rows to config before saving
+    syncAllRowsToConfig();
+
+    let toSave = {
+        format_version: '2.0',
+        groups: config.groups,
+        headers: config.headers,
+        debug_mode: debug_mode,
+        show_comments: show_comments
+    };
+
+    storeInBrowserStorage({ config: JSON.stringify(toSave) }, function () {
+        if (useManifestV3) applyConfigWithManifestV3();
+        else chrome.runtime.sendMessage('reload');
+
+        // Visual feedback
+        let btn = document.getElementById('save_button');
+        let originalText = btn.innerHTML;
+        btn.innerHTML = '<span class="glyphicon glyphicon-ok"></span> Saved!';
+        btn.classList.add('btn-success');
+        btn.classList.remove('btn-primary');
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-primary');
+        }, 1500);
+    });
+}
+
+function syncAllRowsToConfig() {
+    document.querySelectorAll('#global_rules_tab tr, #group_rules_tab tr').forEach(tr => {
+        let ruleId = tr.dataset.ruleId;
+        if (ruleId) updateRuleFromRow(ruleId, tr);
+    });
+}
+
+// ===========================
+// START / STOP
+// ===========================
+
+function startModify() {
+    if (started === 'off') {
+        syncAllRowsToConfig();
+        let toSave = {
+            format_version: '2.0',
+            groups: config.groups,
+            headers: config.headers,
+            debug_mode: debug_mode,
+            show_comments: show_comments
+        };
+        storeInBrowserStorage({ config: JSON.stringify(toSave) }, function () {
+            storeInBrowserStorage({ started: 'on' }, function () {
+                started = 'on';
+                updateStartStopIcon();
+                if (useManifestV3) applyConfigWithManifestV3();
+                else chrome.runtime.sendMessage('on');
+            });
+        });
+    } else {
+        storeInBrowserStorage({ started: 'off' }, function () {
+            started = 'off';
+            updateStartStopIcon();
+            if (useManifestV3) removeConfigWithManifestV3();
+            else chrome.runtime.sendMessage('off');
+        });
+    }
+}
+
+function updateStartStopIcon() {
+    document.getElementById('start_img').src = started === 'on' ? 'img/stop.png' : 'img/start.png';
+}
+
+// ===========================
+// PARAMETERS SCREEN
+// ===========================
 
 function showParametersScreen() {
-    document.getElementById('main_screen').hidden = true;
+    document.getElementById('main_screen') && (document.getElementById('main_screen').hidden = true);
+    document.querySelector('.app-body').hidden = true;
+    document.querySelector('.app-footer').hidden = true;
     document.getElementById('parameters_screen').hidden = false;
 }
 
 function hideParametersScreen() {
-    document.getElementById('main_screen').hidden = false;
+    document.querySelector('.app-body').hidden = false;
+    document.querySelector('.app-footer').hidden = false;
     document.getElementById('parameters_screen').hidden = true;
 }
 
-function showCommentsClick() {
-    if (document.getElementById('show_comments').checked) show_comments = true;
-    else show_comments = false;
-    reshapeTable();
-}
+// ===========================
+// IMPORT / EXPORT
+// ===========================
 
-function useUrlContainsClick() {
-    if (document.getElementById('use_url_contains').checked) use_url_contains = true;
-    else use_url_contains = false;
-    reshapeTable();
-}
-
-function clickOnDebugCheckBox() {
-    if (document.getElementById('debug_mode').checked) debug_mode = true;
-    else debug_mode = false;
-}
-
-/** END PARAMETERS SCREEN MANAGEMENT **/
-
-/**
- * Add a new configuration line on the UI
- **/
-function appendLine(url_contains, action, header_name, header_value, comment, apply_on, status) {
-    let html = `
-    <td ${use_url_contains ? '' : ' hidden'}>
-      <input class="${input_field_style}" id="url_contains${line_number}" />
-    </td>
-    <td>
-      <select class="form_control select_field" id="select_action${line_number}"> disable="false">
-        <option value="add">Add</option>
-        <option value="modify">Modify</option>
-        <option value="delete">Delete</option>`;
-    if (!useManifestV3) {
-        // Not available in Manifest V3
-        html += `
-        <option value="cookie_add_or_modify">Cookie Add/Modify</option>
-        <option value="cookie_delete">Cookie Delete</option> `;
-    }
-    html += `
-      </select>
-    </td>
-    <td>
-      <input class="${input_field_style}" id="header_name${line_number}" />
-    </td>
-    <td>
-      <input class="${input_field_style}" id="header_value${line_number}" />
-    </td>
-    <td${show_comments ? '' : ' hidden'}>
-      <input class="${input_field_style}" id="comment${line_number}" />
-    </td>
-    <td>
-      <select class="form_control select_field" id="apply_on${line_number}">
-        <option value="req">Request</option>
-        <option value="res">Response</option>
-      </select>
-    </td>
-    <td>
-      <button type="button" class="btn btn-primary btn-sm" title="Activate/deactivate rule" id="activate_button${line_number}">ON <span class="glyphicon glyphicon-ok"></span></button>
-    </td>
-    <td>
-	  <button type="button" class="btn btn-primary btn-sm" title="Select rule for export" id="check_button${line_number}">
-        To export <span class="glyphicon glyphicon-ok"></span>
-      </button>
-    </td>
-    <td>
-      <button type="button" class="btn btn-default btn-sm" title="Move line up" id="up_button${line_number}">
-        <span class="glyphicon glyphicon-arrow-up"></span>
-      </button>
-    </td>
-    <td>
-      <button type="button" class="btn btn-default btn-sm" title="Move line down" id="down_button${line_number}">
-        <span class="glyphicon glyphicon-arrow-down"></span>
-      </button>
-    </td>
-
-    <td>
-      <button type="button" class="btn btn-default btn-sm" title="Delete line" id="delete_button${line_number}">
-        <span class="glyphicon glyphicon-trash"></span>
-      </button>
-    </td>
-  `;
-
-    let newTR = document.createElement('tr');
-    newTR.id = 'line' + line_number;
-    newTR.innerHTML = html;
-    document.getElementById('config_tab').appendChild(newTR);
-    document.getElementById('select_action' + line_number).value = action;
-    document.getElementById('apply_on' + line_number).value = apply_on;
-    document.getElementById('url_contains' + line_number).value = url_contains;
-    document.getElementById('header_name' + line_number).value = header_name;
-    document.getElementById('header_value' + line_number).value = header_value;
-    document.getElementById('comment' + line_number).value = comment;
-
-    const line_number_to_modify = line_number;
-    document.getElementById('activate_button' + line_number).addEventListener('click', function (e) {
-        switchActivateButton(line_number_to_modify);
-    });
-    setButtonStatus(document.getElementById('activate_button' + line_number), status);
-    document.getElementById('delete_button' + line_number).addEventListener('click', function (e) {
-        deleteLine(line_number_to_modify);
-    });
-    document.getElementById('up_button' + line_number).addEventListener('click', function (e) {
-        invertLine(line_number_to_modify, line_number_to_modify - 1);
-    });
-    document.getElementById('down_button' + line_number).addEventListener('click', function (e) {
-        invertLine(line_number_to_modify, line_number_to_modify + 1);
-    });
-    document.getElementById('check_button' + line_number).addEventListener('click', function (e) {
-        switchExportButton(line_number_to_modify);
-    });
-    line_number++;
-}
-
-/** ACTIVATE BUTTON MANAGEMENT **/
-
-function setButtonStatus(button, status) {
-    if (status === 'on') {
-        button.className = 'btn btn-primary btn-sm';
-        button.innerHTML = 'ON  <span class="glyphicon glyphicon-ok"></span>';
-    } else {
-        button.className = 'btn btn-default btn-sm';
-        button.innerHTML = 'OFF <span class="glyphicon glyphicon-ban-circle"></span>';
-    }
-}
-
-function setExportButtonStatus(button, status) {
-    if (status === 'on') {
-        button.className = 'btn btn-primary btn-sm';
-        button.innerHTML = 'To export <span class="glyphicon glyphicon-ok"></span>';
-    } else {
-        button.className = 'btn btn-default btn-sm';
-        button.innerHTML = 'No export <span class="glyphicon glyphicon-ban-circle"></span>';
-    }
-}
-
-function getButtonStatus(button) {
-    if (button.className === 'btn btn-primary btn-sm') return 'on';
-    return 'off';
-}
-
-function switchActivateButton(button_number) {
-    const activate_button = document.getElementById('activate_button' + button_number);
-    // Button is ON
-    if (getButtonStatus(activate_button) === 'on') setButtonStatus(activate_button, 'off');
-    // Button is OFF
-    else setButtonStatus(activate_button, 'on');
-}
-
-function switchExportButton(button_number) {
-    const check_button = document.getElementById('check_button' + button_number);
-    // Button is ON
-    if (getButtonStatus(check_button) === 'on') setExportButtonStatus(check_button, 'off');
-    // Button is OFF
-    else setExportButtonStatus(check_button, 'on');
-}
-
-/** END ACTIVATE BUTTON MANAGEMENT **/
-
-function reshapeTable() {
-    let th_elements = document.querySelectorAll('#config_table_head th');
-    let tr_elements = document.querySelectorAll('#config_tab tr');
-
-    if (show_comments) {
-        if (use_url_contains) input_field_style = 'form_control input_field_small';
-        else input_field_style = 'form_control input_field_medium';
-    } else {
-        if (use_url_contains) input_field_style = 'form_control input_field_medium';
-        else input_field_style = 'form_control input_field_large';
-    }
-
-    for (let i = 0; i < tr_elements.length; i++) {
-        tr_elements[i].children[4].children[0].className = input_field_style;
-        tr_elements[i].children[4].hidden = !show_comments;
-        tr_elements[i].children[3].children[0].className = input_field_style;
-        tr_elements[i].children[2].children[0].className = input_field_style;
-        tr_elements[i].children[0].children[0].className = input_field_style;
-        tr_elements[i].children[0].hidden = !use_url_contains;
-    }
-    th_elements[4].hidden = !show_comments;
-    th_elements[0].hidden = !use_url_contains;
-}
-
-/**
- * Create a JSON String representing the configuration data
- *
- **/
-function create_configuration_data(saveOrExport) {
-    let tr_elements = document.querySelectorAll('#config_tab tr');
-    let headers = [];
-    let debug_mode = false;
-    let show_comments = false;
-    for (let i = 0; i < tr_elements.length; i++) {
-        if (saveOrExport == 'save' || getButtonStatus(tr_elements[i].children[7].children[0]) == 'on') {
-            const url_contains = tr_elements[i].children[0].children[0].value;
-            const action = tr_elements[i].children[1].children[0].value;
-            const header_name = tr_elements[i].children[2].children[0].value;
-            const header_value = tr_elements[i].children[3].children[0].value;
-            const comment = tr_elements[i].children[4].children[0].value;
-            const apply_on = tr_elements[i].children[5].children[0].value;
-            const status = getButtonStatus(tr_elements[i].children[6].children[0]);
-            headers.push({
-                url_contains: url_contains,
-                action: action,
-                header_name: header_name,
-                header_value: header_value,
-                comment: comment,
-                apply_on: apply_on,
-                status: status
-            });
-        }
-    }
-    if (document.getElementById('debug_mode').checked) debug_mode = true;
-    if (document.getElementById('show_comments').checked) show_comments = true;
-    if (document.getElementById('use_url_contains').checked) use_url_contains = true;
-    let to_export = {
-        format_version: '1.2',
-        target_page: document.getElementById('targetPage').value,
-        headers: headers,
-        debug_mode: debug_mode,
-        show_comments: show_comments,
-        use_url_contains: use_url_contains
-    };
-    debug('createConfigData' + JSON.stringify(to_export));
-    return JSON.stringify(to_export);
-}
-
-/**
- *  check if url pattern is valid , if not set the font color to red
- **/
-function checkTargetPageField() {
-    if (isTargetValid(document.getElementById('targetPage').value))
-        document.getElementById('targetPage').style.color = 'black';
-    else document.getElementById('targetPage').style.color = 'red';
-}
-
-/**
- * check if url patterns are valid
- **/
-function isTargetValid(target) {
-    if (target === '') return true;
-    if (target === ' ') return true;
-    if (target === '*') return true;
-    let targets = target.split(';');
-    for (let i in targets) {
-        if (!targets[i].match('(http|https|[*])://([*][.][^*]*|[^*]*|[*])/')) return false;
-    }
-    return true;
-}
-
-function switchAllExportButtons() {
-    check_all = !check_all;
-    let buttons = document.querySelectorAll("#config_tab tr td > [title='Select rule for export']");
-    for (let i = 0; i < buttons.length; i++) {
-        setExportButtonStatus(buttons[i], check_all ? 'on' : 'off');
-    }
-}
-
-/**
- *  save the data to the local storage and restart modify header
- * show a warning if url patterns are invalid
- **/
-function saveData() {
-    if (!isTargetValid(document.getElementById('targetPage').value)) alert('Warning: Url patterns are invalid');
-    storeInBrowserStorage({config: create_configuration_data('save')}, function () {
-        if (useManifestV3) applyConfigWithManifestV3();
-        else chrome.runtime.sendMessage('reload');
-    });
-    return true;
-}
-
-/**
- * If url pattern is valid save the data in a file
- **/
 function exportData() {
-    // Create file data
-    let to_export = create_configuration_data('export');
+    syncAllRowsToConfig();
 
-    debug('to_export = ' + JSON.stringify(to_export));
+    let toExport = {
+        format_version: '2.0',
+        groups: config.groups,
+        headers: config.headers,
+        debug_mode: debug_mode,
+        show_comments: show_comments
+    };
 
-    // Create file to save
     let a = document.createElement('a');
-    a.href = 'data:attachment/json,' + encodeURIComponent(to_export);
+    a.href = 'data:attachment/json,' + encodeURIComponent(JSON.stringify(toExport));
     a.target = 'download';
-    a.download = 'SimpleModifyHeader.conf';
+    a.download = 'SimpleModifyHeaders.conf';
 
-    // use iframe "download" to put the link (in order not to be redirect in the parent frame)
     let myf = document.getElementById('download');
     myf = myf.contentWindow.document || myf.contentDocument;
     myf.body.appendChild(a);
     a.click();
 }
 
-/**
- * Append data from file
- **/
-function appendData(evt) {
-    if (window.confirm('This will append data to your actual configuration, do you want to continue?')) {
-        import_flag = false;
-        openFile();
-    }
-}
-
-/**
- * Import data from file
- **/
-function importData(evt) {
+function importData() {
     if (window.confirm('This will erase your actual configuration, do you want to continue?')) {
-        import_flag = true;
-        openFile();
+        openFile(true);
     }
 }
 
-// Choose a file
-function openFile() {
-    // create an input field in the iframe
+function appendData() {
+    if (window.confirm('This will append data to your actual configuration, do you want to continue?')) {
+        openFile(false);
+    }
+}
+
+function openFile(replace) {
     let input = document.createElement('input');
     input.type = 'file';
     input.accept = '.conf';
-    input.addEventListener('change', readSingleFile, false);
+    input.addEventListener('change', function (e) {
+        readSingleFile(e, replace);
+    }, false);
     let myf = document.getElementById('download');
     myf = myf.contentWindow.document || myf.contentDocument;
     myf.body.appendChild(input);
     input.click();
 }
 
-/**
- * Import configuration from a file
- *
- *
- *
- **/
-function readSingleFile(e) {
+function readSingleFile(e, replace) {
     let file = e.target.files[0];
     if (!file) return;
     let reader = new FileReader();
     reader.onload = function (e) {
-        loadConfiguration(e.target.result);
+        loadConfiguration(e.target.result, replace);
     };
     reader.readAsText(file);
 }
 
-/**
- * Load configuration from a string
- * If format is not recognized , try modify header add-an file format
- **/
-function loadConfiguration(configuration) {
-    let config = '';
+function loadConfiguration(configuration, replace) {
+    let imported;
     try {
-        config = JSON.parse(configuration);
-        // check file format
-        if (config.format_version) {
-            if (config.format_version === '1.0') config = convertConfigurationFormat1dot0ToCurrentFormat(config);
-            else if (config.format_version === '1.1') config = convertConfigurationFormat1dot1ToCurrentFormat(config);
-        } else {
-            if (config[0].action) config = convertHistoricalModifyHeaderFormatToCurrentFormat(config);
-            else {
-                alert('Invalid file format');
-                return;
-            }
-
-            if (useManifestV3) config = removeCookiesActionFromConfig(config);
-        }
+        imported = JSON.parse(configuration);
+        imported = migrateConfig(imported);
+        if (useManifestV3) imported = removeCookiesActionFromConfig(imported);
     } catch (error) {
         console.log(error);
         alert('Invalid file format');
         return;
     }
 
-    // append, not replace
-    if (!import_flag) {
-        loadFromBrowserStorage(['config'], function (result) {
-            appConfig = JSON.parse(result.config);
-            for (rule of config.headers) {
-                appConfig.headers.push(rule);
-            }
-            storeInBrowserStorage({config: JSON.stringify(appConfig)}, function () {
-                reloadConfigPage();
-            });
-        });
-    }
-    // replace
-    else {
-        // store the conf in the local storage
-        storeInBrowserStorage({config: JSON.stringify(config)}, function () {
-            // load the new conf
-            reloadConfigPage();
-        });
-    }
-}
-
-function convertConfigurationFormat1dot0ToCurrentFormat(config) {
-    config.format_version = '1.2';
-    for (let line of config.headers) {
-        line.apply_on = 'req';
-        line.url_contains = '';
-    }
-    config.debug_mode = false;
-    config.show_comments = true;
-    config.use_url_contains = false;
-    return config;
-}
-
-function convertConfigurationFormat1dot1ToCurrentFormat(config) {
-    config.format_version = '1.2';
-    for (let line of config.headers) line.url_contains = '';
-    config.show_comments = true;
-    config.use_url_contains = false;
-    return config;
-}
-
-/**
- * Historical Modify header add-on file format  : array of {action,name,value,comment,enabled}
- **/
-function convertHistoricalModifyHeaderFormatToCurrentFormat(config) {
-    let headers = [];
-    for (let line_to_load of config) {
-        var enabled = 'off';
-        if (line_to_load.enabled) enabled = 'on';
-        if (line_to_load.action === 'Filter') line_to_load.action = 'delete';
-        headers.push({
-            url_contains: '',
-            action: line_to_load.action.toLowerCase(),
-            header_name: line_to_load.name,
-            header_value: line_to_load.value,
-            comment: line_to_load.comment,
-            apply_on: 'req',
-            status: enabled
-        });
-    }
-    return {
-        format_version: '1.2',
-        target_page: '',
-        headers: headers,
-        debug_mode: false,
-        show_comments: true,
-        use_url_contains: false
-    };
-}
-
-function removeCookiesActionFromConfig(config) {
-    let headers = [];
-    for (let line of config.headers) {
-        if (line.action !== 'cookie_add_or_modify' && line.action !== 'cookie_delete') {
-            headers.push(line);
-        }
-    }
-    config.headers = headers;
-    return config;
-}
-
-function reloadConfigPage() {
-    if (useManifestV3) applyConfigWithManifestV3();
-    else chrome.runtime.sendMessage('reload');
-
-    document.location.href = 'config.html';
-}
-
-/**
- * Delete a configuration line on the UI
- **/
-function deleteLine(line_number_to_delete) {
-    if (line_number_to_delete !== line_number) {
-        for (let i = line_number_to_delete; i < line_number - 1; i++) {
-            const j = i + 1;
-            document.getElementById('select_action' + i).value = document.getElementById('select_action' + j).value;
-            document.getElementById('url_contains' + i).value = document.getElementById('url_contains' + j).value;
-            document.getElementById('header_name' + i).value = document.getElementById('header_name' + j).value;
-            document.getElementById('header_value' + i).value = document.getElementById('header_value' + j).value;
-            document.getElementById('comment' + i).value = document.getElementById('comment' + j).value;
-            setButtonStatus(
-                document.getElementById('activate_button' + i),
-                getButtonStatus(document.getElementById('activate_button' + j))
-            );
-            document.getElementById('apply_on' + i).value = document.getElementById('apply_on' + j).value;
-            setExportButtonStatus(
-                document.getElementById('check_button' + i),
-                getButtonStatus(document.getElementById('check_button' + j))
-            );
-        }
-    }
-
-    let Node_to_delete = document.getElementById('line' + (line_number - 1));
-    Node_to_delete.parentNode.removeChild(Node_to_delete);
-    line_number--;
-}
-
-/**
- * Invert two configuration lines on the UI
- **/
-function invertLine(line1, line2) {
-    // if a line does not exist , do nothing
-    if (line1 === 0 || line2 === 0 || line1 >= line_number || line2 >= line_number) return;
-
-    // Save data for line 1
-    const select_action1 = document.getElementById('select_action' + line1).value;
-    const url_contains1 = document.getElementById('url_contains' + line1).value;
-    const header_name1 = document.getElementById('header_name' + line1).value;
-    const header_value1 = document.getElementById('header_value' + line1).value;
-    const comment1 = document.getElementById('comment' + line1).value;
-    const select_status1 = getButtonStatus(document.getElementById('activate_button' + line1));
-    const apply_on1 = document.getElementById('apply_on' + line1).value;
-    const check_status1 = getButtonStatus(document.getElementById('check_button' + line1));
-
-    // Copy line 2 to line 1
-    document.getElementById('select_action' + line1).value = document.getElementById('select_action' + line2).value;
-    document.getElementById('url_contains' + line1).value = document.getElementById('url_contains' + line2).value;
-    document.getElementById('header_name' + line1).value = document.getElementById('header_name' + line2).value;
-    document.getElementById('header_value' + line1).value = document.getElementById('header_value' + line2).value;
-    document.getElementById('comment' + line1).value = document.getElementById('comment' + line2).value;
-    setButtonStatus(
-        document.getElementById('activate_button' + line1),
-        getButtonStatus(document.getElementById('activate_button' + line2))
-    );
-    document.getElementById('apply_on' + line1).value = document.getElementById('apply_on' + line2).value;
-    setExportButtonStatus(
-        document.getElementById('check_button' + line1),
-        getButtonStatus(document.getElementById('check_button' + line2))
-    );
-
-    // Copy line 1 to line 2
-    document.getElementById('select_action' + line2).value = select_action1;
-    document.getElementById('url_contains' + line2).value = url_contains1;
-    document.getElementById('header_name' + line2).value = header_name1;
-    document.getElementById('header_value' + line2).value = header_value1;
-    document.getElementById('comment' + line2).value = comment1;
-    setButtonStatus(document.getElementById('activate_button' + line2), select_status1);
-    document.getElementById('apply_on' + line2).value = apply_on1;
-    setExportButtonStatus(document.getElementById('check_button' + line2), check_status1);
-}
-
-/**
- * Stop or Start modify header
- **/
-function startModify() {
-    if (started === 'off') {
-        saveData();
-        storeInBrowserStorage({started: 'on'}, function () {
-            started = 'on';
-            document.getElementById('start_img').src = 'img/stop.png';
-            if (useManifestV3) applyConfigWithManifestV3();
-            else chrome.runtime.sendMessage('on');
-        });
+    if (replace) {
+        config = imported;
     } else {
-        storeInBrowserStorage({started: 'off'}, function () {
-            started = 'off';
-            document.getElementById('start_img').src = 'img/start.png';
-            if (useManifestV3) removeConfigWithManifestV3();
-            else chrome.runtime.sendMessage('off');
+        // Append: merge groups and headers
+        if (imported.groups) {
+            imported.groups.forEach(g => {
+                // Avoid duplicate group ids
+                let existing = config.groups.find(eg => eg.id === g.id);
+                if (existing) {
+                    g.id = 'group_' + groupIdCounter++;
+                }
+                config.groups.push(g);
+            });
+        }
+        imported.headers.forEach(h => {
+            h.id = 'rule_' + ruleIdCounter++;
+            config.headers.push(h);
         });
     }
+
+    // Save and reload
+    let toSave = {
+        format_version: '2.0',
+        groups: config.groups,
+        headers: config.headers,
+        debug_mode: config.debug_mode || debug_mode,
+        show_comments: config.show_comments !== undefined ? config.show_comments : show_comments
+    };
+
+    storeInBrowserStorage({ config: JSON.stringify(toSave) }, function () {
+        if (useManifestV3) applyConfigWithManifestV3();
+        else chrome.runtime.sendMessage('reload');
+        document.location.href = 'config.html';
+    });
+}
+
+// ===========================
+// UTILITIES
+// ===========================
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function debug(message) {
+    if (debug_mode) console.log(new Date() + ' ModifyHeadersANDIN : ' + message);
 }

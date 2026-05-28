@@ -585,7 +585,9 @@ function saveGroup() {
 
 function deleteGroup() {
     if (!editingGroupId) return;
-    if (!confirm('Delete this group? Rules assigned to it will become global.')) return;
+    let group = config.groups.find(g => g.id === editingGroupId);
+    let groupName = group ? group.name : '';
+    if (!confirm(`Delete group "${groupName}"?\nRules assigned to it will become global.`)) return;
 
     // Move rules to global
     config.headers.forEach(h => {
@@ -1133,6 +1135,10 @@ function addNewRule() {
 }
 
 function deleteRule(ruleId) {
+    let rule = config.headers.find(h => h.id === ruleId);
+    let ruleName = rule ? (rule.header_name || '(empty)') : '';
+    if (!confirm(`Delete rule "${ruleName}"?`)) return;
+    
     config.headers = config.headers.filter(h => h.id !== ruleId);
     renderRules();
     updateBadges();

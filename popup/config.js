@@ -1021,6 +1021,9 @@ function renderRulesTable(tbodyId, rules, showGroupColumn) {
             </td>
             ${showGroupColumn ? `<td>${groupBadge}</td>` : ''}
             <td>
+                <button type="button" class="rule-btn rule-btn-duplicate" title="Duplicate">
+                    <span class="glyphicon glyphicon-duplicate"></span>
+                </button>
                 <button type="button" class="rule-btn rule-btn-delete" title="Delete">
                     <span class="glyphicon glyphicon-trash"></span>
                 </button>
@@ -1030,6 +1033,19 @@ function renderRulesTable(tbodyId, rules, showGroupColumn) {
         // Set select values
         tr.querySelector('.rule-action').value = rule.action;
         tr.querySelector('.rule-apply-on').value = rule.apply_on;
+
+        // Event listeners
+        tr.querySelector('.rule-status-btn').addEventListener('click', function () {
+            toggleRuleStatus(rule.id, this);
+        });
+
+        tr.querySelector('.rule-btn-delete').addEventListener('click', function () {
+            deleteRule(rule.id);
+        });
+
+        tr.querySelector('.rule-btn-duplicate').addEventListener('click', function () {
+            duplicateRule(rule.id);
+        });
 
         // Handle URL filter select/custom input toggle
         let urlSelect = tr.querySelector('.rule-url-contains-select');
@@ -1058,15 +1074,6 @@ function renderRulesTable(tbodyId, rules, showGroupColumn) {
                 updateRuleFromRow(rule.id, tr);
             });
         }
-
-        // Event listeners
-        tr.querySelector('.rule-status-btn').addEventListener('click', function () {
-            toggleRuleStatus(rule.id, this);
-        });
-
-        tr.querySelector('.rule-btn-delete').addEventListener('click', function () {
-            deleteRule(rule.id);
-        });
 
         // Drag and drop
         tr.setAttribute('draggable', 'true');
@@ -1140,6 +1147,35 @@ function deleteRule(ruleId) {
     if (!confirm(`Delete rule "${ruleName}"?`)) return;
     
     config.headers = config.headers.filter(h => h.id !== ruleId);
+    renderRules();
+    updateBadges();
+    scheduleAutoSave();
+}
+
+function duplicateRule(ruleId) {
+    let rule = config.headers.find(h => h.id === ruleId);
+    if (!rule) return;
+
+    let newRule = {
+        id: 'rule_' + ruleIdCounter++,
+        group_id: rule.group_id,
+        url_contains: rule.url_contains,
+        action: rule.action,
+        header_name: rule.header_name,
+        header_value: rule.header_value,
+        comment: rule.comment ? rule.comment + ' (copy)' : '(copy)',
+        apply_on: rule.apply_on,
+        status: rule.status
+    };
+
+    // Insert after the original rule
+    let idx = config.headers.findIndex(h => h.id === ruleId);
+    if (idx !== -1) {
+        config.headers.splice(idx + 1, 0, newRule);
+    } else {
+        config.headers.push(newRule);
+    }
+
     renderRules();
     updateBadges();
     scheduleAutoSave();

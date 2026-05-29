@@ -19,6 +19,7 @@ let editingGroupId = null;
 let ruleIdCounter = 1;
 let groupIdCounter = 1;
 let autoSaveTimer = null;
+let currentTheme = 'light';
 
 // ===========================
 // INITIALIZATION
@@ -30,8 +31,14 @@ window.onload = function () {
 
 function initConfigurationPage() {
     started = 'off';
-    loadFromBrowserStorage(['config', 'started'], function (result) {
+    loadFromBrowserStorage(['config', 'started', 'theme'], function (result) {
         if (result.started) started = result.started;
+        
+        // Load theme
+        if (result.theme) {
+            currentTheme = result.theme;
+            applyTheme(currentTheme);
+        }
 
         if (result.config === undefined) {
             config = getDefaultConfig();
@@ -202,19 +209,10 @@ function setupEventListeners() {
     document.getElementById('save_group_button').addEventListener('click', saveGroup);
     document.getElementById('delete_group_button').addEventListener('click', deleteGroup);
     document.getElementById('add_url_to_group').addEventListener('click', addUrlInputToEditor);
-    document.getElementById('add_user_url_filter').addEventListener('click', addUserUrlFilterInput);
+    document.getElementById('add_inline_user_filter').addEventListener('click', addInlineUserFilter);
 
-    // Color picker
-    document.getElementById('group_color_picker').addEventListener('input', function () {
-        document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
-    });
-    document.querySelectorAll('.color-btn').forEach(btn => {
-        btn.addEventListener('click', function () {
-            document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
-            this.classList.add('selected');
-            document.getElementById('group_color_picker').value = this.dataset.color;
-        });
-    });
+    // Theme toggle
+    document.getElementById('theme_toggle').addEventListener('click', toggleTheme);
 
     // Filters
     document.getElementById('filter_all').addEventListener('click', function () {
@@ -223,43 +221,6 @@ function setupEventListeners() {
     document.getElementById('filter_global').addEventListener('click', function () {
         setFilter('global');
     });
-
-    // Make global filter a drop target (to move rules from group to global)
-    let globalFilterBtn = document.getElementById('filter_global');
-    globalFilterBtn.addEventListener('dragover', function (e) {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        this.classList.add('drop-target');
-    });
-    globalFilterBtn.addEventListener('dragleave', function () {
-        this.classList.remove('drop-target');
-    });
-    globalFilterBtn.addEventListener('drop', function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        this.classList.remove('drop-target');
-        if (draggedRuleId) {
-            let rule = config.headers.find(h => h.id === draggedRuleId);
-            if (rule && rule.group_id) {
-                rule.group_id = null;
-                draggedRuleId = null;
-                draggedRow = null;
-                renderGroupsList();
-                renderRules();
-                updateBadges();
-                scheduleAutoSave();
-            }
-        }
-    });
-
-    // Group inline filters
-    document.getElementById('edit_group_btn').addEventListener('click', function() {
-        if (currentFilter !== 'all' && currentFilter !== 'global') {
-            openEditGroupEditor(currentFilter);
-        }
-    });
-    document.getElementById('toggle_group_rules_btn').addEventListener('click', toggleGroupRules);
-    document.getElementById('add_inline_user_filter').addEventListener('click', addInlineUserFilter);
 
     // Add rule
     document.getElementById('add_rule_button').addEventListener('click', addNewRule);
@@ -429,6 +390,24 @@ function updateBadges() {
 }
 
 // ===========================
+// THEME
+// ===========================
+
+function toggleTheme() {
+    currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+    applyTheme(currentTheme);
+    storeInBrowserStorage({ theme: currentTheme });
+}
+
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    let icon = document.querySelector('#theme_toggle .glyphicon');
+    if (icon) {
+        icon.className = theme === 'dark' ? 'glyphicon glyphicon-sun' : 'glyphicon glyphicon-adjust';
+    }
+}
+
+// ===========================
 // GROUP EDITOR
 // ===========================
 
@@ -508,15 +487,30 @@ function addUrlInputToEditor(url) {
     let row = document.createElement('div');
     row.className = 'url-input-row';
     row.innerHTML = `
-        <input type="text" class="form_control url-pattern-input" value="${escapeHtml(url)}" placeholder="https://example.com/*">
+        <input type="text" class="form_control url-pattern-input" value="${escapeHtml(url)}" placeholder="https://example.com/*" title="Valid: scheme://host/path (e.g. https://example.com/*, *://*.domain.com/*)">
         <button type="button" class="url-remove-btn" title="Remove">
             <span class="glyphicon glyphicon-remove"></span>
         </button>
     `;
+    let input = row.querySelector('input');
+    
+    // Validate on input
+    input.addEventListener('input', function() {
+        validateUrlPatternInput(this);
+    });
+    
+    // Validate on blur
+    input.addEventListener('blur', function() {
+        validateUrlPatternInput(this);
+    });
+    
     row.querySelector('.url-remove-btn').addEventListener('click', function () {
         row.remove();
     });
     urlsEditor.appendChild(row);
+    
+    // Validate initial value
+    if (url) validateUrlPatternInput(input);
 }
 
 function addUserUrlFilterInput(value) {
@@ -548,13 +542,29 @@ function saveGroup() {
     let status = document.getElementById('group_status_toggle').checked ? 'on' : 'off';
     let defaultUrlFilter = document.getElementById('group_default_url_filter').value.trim();
 
-    // Collect URLs
+    // Collect and validate URLs
     let urlInputs = document.querySelectorAll('.url-pattern-input');
     let urls = [];
+    let hasInvalidUrl = false;
     urlInputs.forEach(input => {
         let val = input.value.trim();
-        if (val) urls.push(val);
+        if (val) {
+            if (isValidUrlPattern(val)) {
+                urls.push(val);
+                input.style.borderColor = '';
+                input.style.color = '';
+            } else {
+                hasInvalidUrl = true;
+                input.style.borderColor = '#F44336';
+                input.style.color = '#F44336';
+            }
+        }
     });
+
+    if (hasInvalidUrl) {
+        alert('Some URL patterns are invalid. Please fix them before saving.\n\nValid format: scheme://host/path\nExamples:\n  https://example.com/*\n  http://localhost:3000/*\n  *://*.example.com/*');
+        return;
+    }
 
     if (urls.length === 0) {
         urls.push('*');
@@ -1552,4 +1562,51 @@ function escapeHtml(str) {
 
 function debug(message) {
     if (debug_mode) console.log(new Date() + ' ModifyHeadersANDIN : ' + message);
+}
+
+function isValidUrlPattern(pattern) {
+    if (!pattern || pattern.trim() === '') return true;
+    pattern = pattern.trim();
+    
+    // Wildcard alone is valid
+    if (pattern === '*') return true;
+    
+    // Check Chrome match pattern syntax: scheme://host/path
+    // scheme: http, https, or *
+    // host: *, *.<domain>, or exact domain
+    // path: any string, can contain *
+    let regex = /^(https?|\*)\:\/\/([^\/]+)(\/.*)?$/;
+    let match = pattern.match(regex);
+    
+    if (!match) return false;
+    
+    let scheme = match[1];
+    let host = match[2];
+    
+    // Validate host
+    if (host !== '*') {
+        // Can be *.domain.com or domain.com
+        if (host.startsWith('*.')) {
+            // Wildcard subdomain
+            let domain = host.slice(2);
+            if (!domain || domain.includes('*')) return false;
+        }
+        // No other wildcards allowed in host
+        if (host.includes('*') && !host.startsWith('*.')) return false;
+    }
+    
+    return true;
+}
+
+function validateUrlPatternInput(input) {
+    let value = input.value.trim();
+    if (isValidUrlPattern(value)) {
+        input.style.borderColor = '';
+        input.style.color = '';
+        return true;
+    } else {
+        input.style.borderColor = '#F44336';
+        input.style.color = '#F44336';
+        return false;
+    }
 }

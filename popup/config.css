@@ -833,19 +833,6 @@ body {
   border-bottom: none;
 }
 
-.rules-table tbody tr {
-  border-bottom: 1px solid #f0f0f0;
-  transition: background 0.1s;
-}
-
-.rules-table tbody tr:hover {
-  background: #f8f8f8;
-}
-
-.rules-table tbody tr:last-child {
-  border-bottom: none;
-}
-
 .rules-table tbody td {
   padding: 6px 8px;
   vertical-align: middle;
@@ -961,34 +948,11 @@ body {
 }
 
 .drag-handle:hover {
-  color: #888;
+  color: var(--text-muted);
 }
 
 .drag-handle:active {
   cursor: grabbing;
-}
-
-.rules-table tbody tr {
-  border-bottom: 1px solid #f0f0f0;
-  transition: background 0.1s, opacity 0.2s;
-}
-
-.rules-table tbody tr:nth-child(even) {
-  background: #f9f9f9;
-}
-
-.rules-table tbody tr:nth-child(odd) {
-  background: #fff;
-}
-
-.rules-table tbody tr.dragging {
-  opacity: 0.4;
-  background: #e3f2fd;
-}
-
-.rules-table tbody tr.drag-over {
-  border-top: 2px solid #008CBA;
-  background: #f0f8ff;
 }
 
 .rule-status-btn {

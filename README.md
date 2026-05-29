@@ -1,4 +1,4 @@
-# Modify Headers ANDIN
+# Modify Headers Plus
 
 > This is a fork of [SimpleModifyHeaders](https://github.com/didierfred/SimpleModifyHeaders) with enhanced UI, group management, and many new features.
 
@@ -32,7 +32,7 @@ Groups allow you to organize rules by URL patterns:
 - **Color**: Custom color for visual identification
 - **URL Patterns**: Chrome match patterns for the group (e.g., `https://api.example.com/*`)
 - **Default URL Filter**: Automatically applied to new rules in the group
-- **Users URL Filters**: Dropdown options for quick filter selection in rules
+- **Others URL Filters**: Dropdown options for quick filter selection in rules
 - **Status**: Enable/disable all rules in the group at once
 
 ## Rules Table

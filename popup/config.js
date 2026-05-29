@@ -186,7 +186,7 @@ function storeInBrowserStorage(item, callback) {
 
 function setupEventListeners() {
     // Header buttons
-    document.getElementById('start_img').addEventListener('click', startModify);
+    document.getElementById('start_stop_btn').addEventListener('click', startModify);
     document.getElementById('export_button').addEventListener('click', exportData);
     document.getElementById('import_button').addEventListener('click', importData);
     document.getElementById('append_button').addEventListener('click', appendData);
@@ -429,7 +429,7 @@ function openNewGroupEditor() {
     urlsEditor.innerHTML = '';
     addUrlInputToEditor('');
 
-    // Clear Users URL Filters
+    // Clear Others URL Filters
     let usersUrlFiltersEditor = document.getElementById('users_url_filters_editor');
     usersUrlFiltersEditor.innerHTML = '';
     addUserUrlFilterInput('');
@@ -461,7 +461,7 @@ function openEditGroupEditor(groupId) {
     urlsEditor.innerHTML = '';
     group.urls.forEach(url => addUrlInputToEditor(url));
 
-    // Set Users URL Filters
+    // Set Others URL Filters
     let usersUrlFiltersEditor = document.getElementById('users_url_filters_editor');
     usersUrlFiltersEditor.innerHTML = '';
     if (group.users_url_filter && group.users_url_filter.length > 0) {
@@ -570,7 +570,7 @@ function saveGroup() {
         urls.push('*');
     }
 
-    // Collect Users URL Filters
+    // Collect Others URL Filters
     let userUrlFilterInputs = document.querySelectorAll('.user-url-filter-input');
     let usersUrlFilter = [];
     userUrlFilterInputs.forEach(input => {
@@ -1161,7 +1161,7 @@ function addNewRule() {
         header_value: '',
         comment: '',
         apply_on: 'req',
-        status: 'on'
+        status: 'off'
     };
 
     config.headers.push(newRule);
@@ -1422,7 +1422,14 @@ function startModify() {
 }
 
 function updateStartStopIcon() {
-    document.getElementById('start_img').src = started === 'on' ? 'img/stop.png' : 'img/start.png';
+    const btn = document.getElementById('start_stop_btn');
+    if (started === 'on') {
+        btn.textContent = '\u23F9 STOP';
+        btn.classList.add('stopped');
+    } else {
+        btn.textContent = '\u25B6 START';
+        btn.classList.remove('stopped');
+    }
 }
 
 // ===========================
@@ -1561,7 +1568,7 @@ function escapeHtml(str) {
 }
 
 function debug(message) {
-    if (debug_mode) console.log(new Date() + ' ModifyHeadersANDIN : ' + message);
+    if (debug_mode) console.log(new Date() + ' ModifyHeadersPlus : ' + message);
 }
 
 function isValidUrlPattern(pattern) {

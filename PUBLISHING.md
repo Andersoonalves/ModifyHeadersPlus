@@ -1,4 +1,4 @@
-# Como Publicar a Extensão Modify Headers ANDIN
+# Como Publicar a Extensão Modify Headers Plus
 
 ## Chrome Web Store
 

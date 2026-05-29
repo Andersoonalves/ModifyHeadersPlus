@@ -2,7 +2,7 @@
 const useManifestV3 = navigator.userAgent.toLowerCase().indexOf('chrome') !== -1;
 
 function debug(message) {
-    if (debug_mode) console.log(new Date() + ' ModifyHeadersANDIN : ' + message);
+    if (debug_mode) console.log(new Date() + ' ModifyHeadersPlus : ' + message);
 }
 
 /**
@@ -76,7 +76,7 @@ function applyConfigWithManifestV3() {
                 debug('Rules number: ' + rules.length);
                 if (rules.length >= chrome.declarativeNetRequest.MAX_NUMBER_OF_UNSAFE_DYNAMIC_RULES)
                     alert(
-                        'Modify Headers ANDIN: You\'ve reached the maximum number of url filtered allowed by the browser. Please disable some rules or remove some url filters.'
+                        'Modify Headers Plus: You\'ve reached the maximum number of url filtered allowed by the browser. Please disable some rules or remove some url filters.'
                     );
                 else chrome.declarativeNetRequest.updateDynamicRules({addRules: rules});
                 chrome.action.setIcon({path: '../icons/modify-green-32.png'});

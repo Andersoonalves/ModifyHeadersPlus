@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Modify Headers ANDIN</title>
+  <title>Modify Headers Plus</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="bootstrap.min.css">
@@ -13,7 +13,7 @@
 
   <!-- HEADER -->
   <div class="app-header">
-    <h2 class="title">MODIFY HEADERS ANDIN</h2>
+    <h2 class="title">MODIFY HEADERS PLUS</h2>
     <div class="header-actions">
       <div class="theme-toggle-wrapper" title="Toggle Dark/Light mode">
         <input type="checkbox" id="theme_toggle" class="theme-toggle-input">
@@ -35,7 +35,7 @@
       <button type="button" id="parameters_button" class="btn btn-primary btn-sm" title="Extension settings">
         <span class="glyphicon glyphicon-cog"></span> Parameters
       </button>
-      <img id="start_img" src="img/start.png" alt="start/stop" class="start-stop-btn" title="Click to Start/Stop extension">
+      <button type="button" id="start_stop_btn" class="start-stop-btn" title="Click to Start/Stop extension">▶ START</button>
     </div>
   </div>
 
@@ -211,7 +211,7 @@
                 <input type="text" id="inline_default_url_filter" class="form_control" placeholder="applied to new rules">
               </div>
               <div class="group-filter-item">
-                <label>Users URL Filters:</label>
+                <label>Others URL Filters:</label>
                 <div id="inline_users_url_filters" class="inline-filters-list">
                   <!-- Dynamic filter inputs -->
                 </div>
@@ -260,7 +260,7 @@
 
   <!-- PARAMETERS SCREEN -->
   <div id="parameters_screen" class="parameters-screen" hidden>
-    <h2 class="title">MODIFY HEADERS ANDIN</h2>
+    <h2 class="title">MODIFY HEADERS PLUS</h2>
     <strong>Parameters:</strong>
     <br/><br/>
     <label class="param-label">

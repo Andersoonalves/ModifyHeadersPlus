@@ -1,7 +1,7 @@
 {
-  "description": "Modify Headers ANDIN - Chrome extension to modify HTTP headers",
+  "description": "Modify Headers Plus - Chrome extension to modify HTTP headers",
   "manifest_version": 3,
-  "name": "Modify Headers ANDIN",
+  "name": "Modify Headers Plus",
   "version": "2.0.0",
   "homepage_url": "https://github.com/didierfred/SimpleModifyHeaders",
   "icons": {
@@ -19,7 +19,7 @@
   ],
   "action": {
     "default_icon": "icons/modify-32.png",
-    "default_title": "Modify Headers ANDIN",
+    "default_title": "Modify Headers Plus",
     "default_popup": "popup/menu.html"
   },
   "background": {

@@ -113,12 +113,33 @@ body {
 .start-stop-btn {
   cursor: pointer;
   height: 32px;
+  padding: 0 12px;
   margin-left: 8px;
-  transition: transform 0.15s;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  transition: transform 0.15s, background 0.2s, color 0.2s;
+  white-space: nowrap;
 }
 
 .start-stop-btn:hover {
-  transform: scale(1.1);
+  transform: scale(1.05);
+  background: var(--accent-color);
+  color: #fff;
+}
+
+.start-stop-btn.stopped {
+  background: var(--success-color);
+  color: #fff;
+  border-color: var(--success-color);
+}
+
+.start-stop-btn.stopped:hover {
+  background: #43a047;
 }
 
 .app-body {

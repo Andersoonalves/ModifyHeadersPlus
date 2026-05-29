@@ -173,7 +173,7 @@ function set_cookie_modify_cookie_value(original_set_cookie_header_content, key,
  */
 
 function log(message) {
-    console.log(new Date() + ' ModifyHeadersANDIN : ' + message);
+    console.log(new Date() + ' ModifyHeadersPlus : ' + message);
 }
 
 /*

@@ -212,7 +212,7 @@ function setupEventListeners() {
     document.getElementById('add_inline_user_filter').addEventListener('click', addInlineUserFilter);
 
     // Theme toggle
-    document.getElementById('theme_toggle').addEventListener('click', toggleTheme);
+    document.getElementById('theme_toggle').addEventListener('change', toggleTheme);
 
     // Filters
     document.getElementById('filter_all').addEventListener('click', function () {
@@ -401,9 +401,9 @@ function toggleTheme() {
 
 function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
-    let icon = document.querySelector('#theme_toggle .glyphicon');
-    if (icon) {
-        icon.className = theme === 'dark' ? 'glyphicon glyphicon-sun' : 'glyphicon glyphicon-adjust';
+    let toggle = document.getElementById('theme_toggle');
+    if (toggle) {
+        toggle.checked = theme === 'dark';
     }
 }
 

@@ -1010,13 +1010,13 @@ function renderRulesTable(tbodyId, rules, showGroupColumn) {
         }
 
         tr.innerHTML = `
-            <td class="drag-handle" title="Drag to reorder">
+            <td class="drag-handle" title="Drag to reorder rule">
                 <span class="glyphicon glyphicon-move"></span>
             </td>
-            <td>
+            <td title="Filter by URL pattern (optional)">
                 ${urlFilterHtml}
             </td>
-            <td>
+            <td title="Action: Add, Modify, or Delete header">
                 <select class="rule-select rule-action">
                     <option value="add">Add</option>
                     <option value="modify">Modify</option>
@@ -1027,32 +1027,32 @@ function renderRulesTable(tbodyId, rules, showGroupColumn) {
                     ` : ''}
                 </select>
             </td>
-            <td>
+            <td title="HTTP header name (e.g. Authorization, Content-Type)">
                 <input class="rule-input rule-header-name" value="${escapeHtml(rule.header_name)}" placeholder="Header-Name" list="header_names_list">
             </td>
-            <td>
+            <td title="Header value to set">
                 <input class="rule-input rule-header-value" value="${escapeHtml(rule.header_value)}" placeholder="value">
             </td>
-            <td class="col-comment" ${show_comments ? '' : 'style="display:none"'}>
+            <td class="col-comment" ${show_comments ? '' : 'style="display:none"'} title="Optional comment">
                 <input class="rule-input rule-comment" value="${escapeHtml(rule.comment)}" placeholder="comment">
             </td>
-            <td>
+            <td title="Apply to Request or Response headers">
                 <select class="rule-select rule-apply-on">
                     <option value="req">Request</option>
                     <option value="res">Response</option>
                 </select>
             </td>
-            <td>
+            <td title="Click to enable/disable this rule">
                 <button type="button" class="rule-status-btn ${rule.status === 'on' ? 'on' : 'off'}">
                     ${rule.status === 'on' ? 'ON' : 'OFF'}
                 </button>
             </td>
-            ${showGroupColumn ? `<td>${groupBadge}</td>` : ''}
+            ${showGroupColumn ? `<td title="Group this rule belongs to">${groupBadge}</td>` : ''}
             <td>
-                <button type="button" class="rule-btn rule-btn-duplicate" title="Duplicate">
+                <button type="button" class="rule-btn rule-btn-duplicate" title="Duplicate this rule">
                     <span class="glyphicon glyphicon-duplicate"></span>
                 </button>
-                <button type="button" class="rule-btn rule-btn-delete" title="Delete">
+                <button type="button" class="rule-btn rule-btn-delete" title="Delete this rule">
                     <span class="glyphicon glyphicon-trash"></span>
                 </button>
             </td>

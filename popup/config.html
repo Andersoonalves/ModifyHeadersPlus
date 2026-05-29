@@ -15,19 +15,19 @@
   <div class="app-header">
     <h2 class="title">MODIFY HEADERS ANDIN</h2>
     <div class="header-actions">
-      <button type="button" id="export_button" class="btn btn-primary btn-sm">
+      <button type="button" id="export_button" class="btn btn-primary btn-sm" title="Export configuration to file">
         <span class="glyphicon glyphicon-export"></span> Export
       </button>
-      <button type="button" id="import_button" class="btn btn-primary btn-sm">
+      <button type="button" id="import_button" class="btn btn-primary btn-sm" title="Import configuration from file">
         <span class="glyphicon glyphicon-import"></span> Import
       </button>
-      <button type="button" id="append_button" class="btn btn-primary btn-sm">
+      <button type="button" id="append_button" class="btn btn-primary btn-sm" title="Append rules from file">
         <span class="glyphicon glyphicon-import"></span> Append
       </button>
-      <button type="button" id="parameters_button" class="btn btn-primary btn-sm">
+      <button type="button" id="parameters_button" class="btn btn-primary btn-sm" title="Extension settings">
         <span class="glyphicon glyphicon-cog"></span> Parameters
       </button>
-      <img id="start_img" src="img/start.png" alt="start/stop" class="start-stop-btn">
+      <img id="start_img" src="img/start.png" alt="start/stop" class="start-stop-btn" title="Click to Start/Stop extension">
     </div>
   </div>
 
@@ -38,17 +38,17 @@
     <div class="sidebar" id="sidebar">
       <div class="sidebar-header">
         <h4>URL Groups</h4>
-        <button type="button" id="add_group_button" class="btn btn-success btn-sm" title="New Group">
+        <button type="button" id="add_group_button" class="btn btn-success btn-sm" title="Create new URL group">
           <span class="glyphicon glyphicon-plus"></span>
         </button>
       </div>
 
       <div class="sidebar-filters">
-        <button type="button" class="filter-btn active" data-filter="all" id="filter_all">
+        <button type="button" class="filter-btn active" data-filter="all" id="filter_all" title="Show all rules from all groups">
           <span class="glyphicon glyphicon-th-list"></span> All Rules
           <span class="badge" id="badge_all">0</span>
         </button>
-        <button type="button" class="filter-btn" data-filter="global" id="filter_global">
+        <button type="button" class="filter-btn" data-filter="global" id="filter_global" title="Show only global rules (no group)">
           <span class="glyphicon glyphicon-globe"></span> Global
           <span class="badge" id="badge_global">0</span>
         </button>
@@ -75,7 +75,7 @@
         <div class="group-editor-body">
           <div class="form-row">
             <label>Group Name:</label>
-            <input type="text" id="group_name_input" class="form_control" placeholder="e.g. APIs Production">
+            <input type="text" id="group_name_input" class="form_control" placeholder="e.g. APIs Production" title="Descriptive name for this group">
           </div>
           <div class="form-row">
             <label>Color:</label>
@@ -231,44 +231,6 @@
               </tbody>
             </table>
           </div>
-        </div>
-          </div>
-          
-          <!-- Group URL Filters (inline editable) -->
-          <div class="group-filters-bar" id="group_filters_bar">
-            <div class="group-filter-item">
-              <label>Default URL Filter:</label>
-              <input type="text" id="inline_default_url_filter" class="form_control" placeholder="applied to new rules">
-            </div>
-            <div class="group-filter-item">
-              <label>Others URL Filters:</label>
-              <div id="inline_users_url_filters" class="inline-filters-list">
-                <!-- Dynamic filter inputs -->
-
-              </div>
-              <button type="button" class="btn btn-default btn-xs" id="add_inline_user_filter">
-                <span class="glyphicon glyphicon-plus"></span> Add
-              </button>
-            </div>
-          </div>
-
-          <table class="rules-table">
-            <thead>
-              <tr>
-                <th></th>
-                <th>URL Filter</th>
-                <th>Action</th>
-                <th>Header Name</th>
-                <th>Header Value</th>
-                <th class="col-comment">Comment</th>
-                <th>Apply On</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="group_rules_tab">
-            </tbody>
-          </table>
         </div>
 
         <!-- ALL GROUPS SECTIONS (dynamic, shown in "All Rules" view) -->

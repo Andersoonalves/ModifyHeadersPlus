@@ -1,8 +1,18 @@
 
 const useManifestV3 = navigator.userAgent.toLowerCase().indexOf('chrome') !== -1;
 
+var debug_mode = false;
+
 function debug(message) {
     if (debug_mode) console.log(new Date() + ' ModifyHeadersPlus : ' + message);
+}
+
+function loadFromBrowserStorage(item, cb) {
+    chrome.storage.local.get(item, cb);
+}
+
+function storeInBrowserStorage(item, cb) {
+    chrome.storage.local.set(item, cb);
 }
 
 /**
@@ -79,7 +89,11 @@ function applyConfigWithManifestV3() {
                         'Modify Headers Plus: You\'ve reached the maximum number of url filtered allowed by the browser. Please disable some rules or remove some url filters.'
                     );
                 else chrome.declarativeNetRequest.updateDynamicRules({addRules: rules});
-                chrome.action.setIcon({path: '../icons/modify-green-32.png'});
+                chrome.action.setIcon({path: {
+                    "16": chrome.runtime.getURL("icons/modify-green-16.png"),
+                    "32": chrome.runtime.getURL("icons/modify-green-32.png"),
+                    "48": chrome.runtime.getURL("icons/modify-green-48.png")
+                }});
             })
         );
 }
@@ -142,13 +156,21 @@ function removeConfigWithManifestV3(callback) {
                 rulesToDelete.push(rule.id);
             });
         }
-        chrome.action.setIcon({path: '../icons/modify-32.png'});
+        chrome.action.setIcon({path: {
+            "16": chrome.runtime.getURL("icons/modify-16.png"),
+            "32": chrome.runtime.getURL("icons/modify-32.png"),
+            "48": chrome.runtime.getURL("icons/modify-48.png")
+        }});
         debug('Delete rules ' + JSON.stringify(rulesToDelete));
-        chrome.declarativeNetRequest.updateDynamicRules(
-            {
-                removeRuleIds: rulesToDelete
-            },
-            callback
-        );
+        if (rulesToDelete.length > 0) {
+            chrome.declarativeNetRequest.updateDynamicRules(
+                {
+                    removeRuleIds: rulesToDelete
+                },
+                callback
+            );
+        } else {
+            if (callback) callback();
+        }
     });
 }

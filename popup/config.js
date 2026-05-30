@@ -10,10 +10,10 @@
 // STATE
 // ===========================
 
-let started;
-let show_comments = true;
-let debug_mode = false;
-let config = null;
+var started = 'off';
+var show_comments = true;
+var debug_mode = false;
+var config = null;
 let currentFilter = 'all'; // 'all', 'global', or group id
 let editingGroupId = null;
 let ruleIdCounter = 1;
@@ -26,7 +26,7 @@ let currentTheme = 'light';
 // ===========================
 
 window.onload = function () {
-    initConfigurationPage();
+    I18n.init().then(() => initConfigurationPage());
 };
 
 function initConfigurationPage() {
@@ -172,14 +172,6 @@ function removeCookiesActionFromConfig(config) {
 // STORAGE
 // ===========================
 
-function loadFromBrowserStorage(item, callback) {
-    chrome.storage.local.get(item, callback);
-}
-
-function storeInBrowserStorage(item, callback) {
-    chrome.storage.local.set(item, callback);
-}
-
 // ===========================
 // EVENT LISTENERS
 // ===========================
@@ -213,6 +205,13 @@ function setupEventListeners() {
 
     // Theme toggle
     document.getElementById('theme_toggle').addEventListener('change', toggleTheme);
+
+    // Language selector
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            I18n.setLang(this.dataset.lang);
+        });
+    });
 
     // Filters
     document.getElementById('filter_all').addEventListener('click', function () {
@@ -1424,10 +1423,10 @@ function startModify() {
 function updateStartStopIcon() {
     const btn = document.getElementById('start_stop_btn');
     if (started === 'on') {
-        btn.textContent = '\u23F9 STOP';
+        btn.textContent = I18n.t('btnStop');
         btn.classList.add('stopped');
     } else {
-        btn.textContent = '\u25B6 START';
+        btn.textContent = I18n.t('btnStart');
         btn.classList.remove('stopped');
     }
 }
@@ -1467,7 +1466,7 @@ function exportData() {
     let a = document.createElement('a');
     a.href = 'data:attachment/json,' + encodeURIComponent(JSON.stringify(toExport));
     a.target = 'download';
-    a.download = 'SimpleModifyHeaders.conf';
+    a.download = 'ModifyHeadersPlus.conf';
 
     let myf = document.getElementById('download');
     myf = myf.contentWindow.document || myf.contentDocument;

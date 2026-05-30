@@ -9,7 +9,7 @@
 ### 2. Preparar o pacote
 ```bash
 cd /Users/anderson/Documents/projetos/SimpleModifyHeadersNGX
-zip -r modify-headers-andin.zip . -x "*.git*" -x "*.idea*" -x "package/*" -x "tests/*" -x "*.md"
+zip -r modify-headers-plus.zip . -x "*.git*" -x "*.idea*" -x "package/*" -x "tests/*" -x "*.md"
 ```
 
 ### 3. Enviar para a Chrome Web Store

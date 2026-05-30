@@ -15,7 +15,7 @@
   <div class="app-header">
     <h2 class="title">MODIFY HEADERS PLUS</h2>
     <div class="header-actions">
-      <div class="theme-toggle-wrapper" title="Toggle Dark/Light mode">
+      <div class="theme-toggle-wrapper" data-i18n-title="tooltipToggleTheme">
         <input type="checkbox" id="theme_toggle" class="theme-toggle-input">
         <label for="theme_toggle" class="theme-toggle-label">
           <span class="theme-toggle-icon theme-toggle-sun">☀️</span>
@@ -23,19 +23,23 @@
           <span class="theme-toggle-ball"></span>
         </label>
       </div>
-      <button type="button" id="export_button" class="btn btn-primary btn-sm" title="Export configuration to file">
-        <span class="glyphicon glyphicon-export"></span> Export
+      <div class="lang-selector">
+        <button type="button" class="lang-btn active" data-lang="en" title="English">🇺🇸</button>
+        <button type="button" class="lang-btn" data-lang="pt" title="Português">🇧🇷</button>
+      </div>
+      <button type="button" id="export_button" class="btn btn-primary btn-sm" data-i18n-title="tooltipExport">
+        <span class="glyphicon glyphicon-export"></span> <span data-i18n="btnExport">Export</span>
       </button>
-      <button type="button" id="import_button" class="btn btn-primary btn-sm" title="Import configuration from file">
-        <span class="glyphicon glyphicon-import"></span> Import
+      <button type="button" id="import_button" class="btn btn-primary btn-sm" data-i18n-title="tooltipImport">
+        <span class="glyphicon glyphicon-import"></span> <span data-i18n="btnImport">Import</span>
       </button>
-      <button type="button" id="append_button" class="btn btn-primary btn-sm" title="Append rules from file">
-        <span class="glyphicon glyphicon-import"></span> Append
+      <button type="button" id="append_button" class="btn btn-primary btn-sm" data-i18n-title="tooltipAppend">
+        <span class="glyphicon glyphicon-import"></span> <span data-i18n="btnAppend">Append</span>
       </button>
-      <button type="button" id="parameters_button" class="btn btn-primary btn-sm" title="Extension settings">
-        <span class="glyphicon glyphicon-cog"></span> Parameters
+      <button type="button" id="parameters_button" class="btn btn-primary btn-sm" data-i18n-title="tooltipSettings">
+        <span class="glyphicon glyphicon-cog"></span> <span data-i18n="btnParameters">Parameters</span>
       </button>
-      <button type="button" id="start_stop_btn" class="start-stop-btn" title="Click to Start/Stop extension">▶ START</button>
+      <button type="button" id="start_stop_btn" class="start-stop-btn" data-i18n-title="tooltipStartStop">▶ START</button>
     </div>
   </div>
 
@@ -45,19 +49,19 @@
     <!-- SIDEBAR - GROUPS -->
     <div class="sidebar" id="sidebar">
       <div class="sidebar-header">
-        <h4>URL Groups</h4>
-        <button type="button" id="add_group_button" class="btn btn-success btn-sm" title="Create new URL group">
+        <h4 data-i18n="titleUrlGroups">URL Groups</h4>
+        <button type="button" id="add_group_button" class="btn btn-success btn-sm" data-i18n-title="tooltipAddGroup">
           <span class="glyphicon glyphicon-plus"></span>
         </button>
       </div>
 
       <div class="sidebar-filters">
-        <button type="button" class="filter-btn active" data-filter="all" id="filter_all" title="Show all rules from all groups">
-          <span class="glyphicon glyphicon-th-list"></span> All Rules
+        <button type="button" class="filter-btn active" data-filter="all" id="filter_all" data-i18n-title="tooltipShowAll">
+          <span class="glyphicon glyphicon-th-list"></span> <span data-i18n="titleAllRules">All Rules</span>
           <span class="badge" id="badge_all">0</span>
         </button>
-        <button type="button" class="filter-btn" data-filter="global" id="filter_global" title="Show only global rules (no group)">
-          <span class="glyphicon glyphicon-globe"></span> Global
+        <button type="button" class="filter-btn" data-filter="global" id="filter_global" data-i18n-title="tooltipShowGlobal">
+          <span class="glyphicon glyphicon-globe"></span> <span data-i18n="titleGlobal">Global</span>
           <span class="badge" id="badge_global">0</span>
         </button>
       </div>
@@ -75,18 +79,18 @@
       <!-- Group Editor (hidden by default) -->
       <div id="group_editor" class="group-editor" hidden>
         <div class="group-editor-header">
-          <h4 id="group_editor_title">New Group</h4>
+          <h4 id="group_editor_title" data-i18n="titleNewGroup">New Group</h4>
           <button type="button" class="btn btn-default btn-sm" id="close_group_editor">
             <span class="glyphicon glyphicon-remove"></span>
           </button>
         </div>
         <div class="group-editor-body">
           <div class="form-row">
-            <label>Group Name:</label>
-            <input type="text" id="group_name_input" class="form_control" placeholder="e.g. APIs Production" title="Descriptive name for this group">
+            <label data-i18n="labelGroupName">Group Name:</label>
+            <input type="text" id="group_name_input" class="form_control" data-i18n-placeholder="placeholderGroupName" title="Descriptive name for this group">
           </div>
           <div class="form-row">
-            <label>Color:</label>
+            <label data-i18n="labelColor">Color:</label>
             <div class="color-picker">
               <input type="color" id="group_color_picker" value="#4CAF50">
               <div class="color-presets">
@@ -102,32 +106,32 @@
             </div>
           </div>
           <div class="form-row">
-            <label>URL Patterns:</label>
+            <label data-i18n="labelUrlPatterns">URL Patterns:</label>
             <div class="urls-editor" id="urls_editor">
               <!-- URL inputs will be rendered here -->
             </div>
             <button type="button" class="btn btn-default btn-sm" id="add_url_to_group">
-              <span class="glyphicon glyphicon-plus"></span> Add URL
+              <span class="glyphicon glyphicon-plus"></span> <span data-i18n="btnAddUrl">Add URL</span>
             </button>
-            <small class="help-text">Optional. Use Chrome match patterns. Leave empty to match all URLs (*).</small>
+            <small class="help-text" data-i18n="helpUrlPatterns">Optional. Use Chrome match patterns. Leave empty to match all URLs (*).</small>
           </div>
           <div class="form-row">
-            <label>Default URL Filter:</label>
-            <input type="text" id="group_default_url_filter" class="form_control" placeholder="e.g. api (applied to all group rules)">
-            <small class="help-text">Optional. This filter will be automatically applied to new rules in this group.</small>
+            <label data-i18n="labelDefaultUrlFilter">Default URL Filter:</label>
+            <input type="text" id="group_default_url_filter" class="form_control" data-i18n-placeholder="placeholderUrlFilter">
+            <small class="help-text" data-i18n="helpDefaultFilter">Optional. This filter will be automatically applied to new rules in this group.</small>
           </div>
           <div class="form-row">
-            <label>Users URL Filter:</label>
+            <label data-i18n="labelOthersUrlFilters">Others URL Filters:</label>
             <div class="urls-editor" id="users_url_filters_editor">
               <!-- Users URL filter inputs will be rendered here -->
             </div>
             <button type="button" class="btn btn-default btn-sm" id="add_user_url_filter">
-              <span class="glyphicon glyphicon-plus"></span> Add Filter
+              <span class="glyphicon glyphicon-plus"></span> <span data-i18n="btnAddFilter">Add Filter</span>
             </button>
-            <small class="help-text">Optional. These filters will appear as a dropdown in rules for quick selection.</small>
+            <small class="help-text" data-i18n="helpOthersFilters">Optional. These filters will appear as a dropdown in rules for quick selection.</small>
           </div>
           <div class="form-row">
-            <label>Status:</label>
+            <label data-i18n="labelStatus">Status:</label>
             <label class="toggle-switch">
               <input type="checkbox" id="group_status_toggle" checked>
               <span class="toggle-slider"></span>
@@ -135,10 +139,10 @@
           </div>
           <div class="form-actions">
             <button type="button" class="btn btn-primary btn-sm" id="save_group_button">
-              <span class="glyphicon glyphicon-ok"></span> Save Group
+              <span class="glyphicon glyphicon-ok"></span> <span data-i18n="btnSaveGroup">Save Group</span>
             </button>
             <button type="button" class="btn btn-danger btn-sm" id="delete_group_button" hidden>
-              <span class="glyphicon glyphicon-trash"></span> Delete Group
+              <span class="glyphicon glyphicon-trash"></span> <span data-i18n="btnDeleteGroup">Delete Group</span>
             </button>
           </div>
         </div>
@@ -148,9 +152,9 @@
       <div id="rules_content">
         <!-- FILTER BAR -->
         <div class="filter-bar">
-          <span class="filter-label" id="current_filter_label">All Rules</span>
+          <span class="filter-label" id="current_filter_label" data-i18n="titleAllRules">All Rules</span>
           <div class="filter-bar-right">
-            <input type="text" id="search_rules" class="search-input" placeholder="Search rules..." hidden>
+            <input type="text" id="search_rules" class="search-input" data-i18n-placeholder="placeholderSearch" hidden>
             <div class="filter-info" id="filter_info"></div>
           </div>
         </div>
@@ -160,7 +164,7 @@
           <div class="section-header drop-zone" id="global_rules_drop_zone">
             <h4>
               <span class="glyphicon glyphicon-chevron-down section-toggle" id="global_toggle"></span>
-              <span class="glyphicon glyphicon-globe"></span> Global Rules <small>(apply to all URLs)</small>
+              <span class="glyphicon glyphicon-globe"></span> <span data-i18n="titleGlobalRules">Global Rules</span> <small>(<span data-i18n="titleGlobalRulesApply">apply to all URLs</span>)</small>
             </h4>
           </div>
           <div class="section-content" id="global_content">
@@ -168,14 +172,14 @@
               <thead>
                 <tr>
                   <th></th>
-                  <th>URL Filter</th>
-                  <th>Action</th>
-                  <th>Header Name</th>
-                  <th>Header Value</th>
-                  <th class="col-comment">Comment</th>
-                  <th>Apply On</th>
-                  <th>Status</th>
-                  <th>Group</th>
+                  <th data-i18n="colUrlFilter">URL Filter</th>
+                  <th data-i18n="colAction">Action</th>
+                  <th data-i18n="colHeaderName">Header Name</th>
+                  <th data-i18n="colHeaderValue">Header Value</th>
+                  <th class="col-comment" data-i18n="colComment">Comment</th>
+                  <th data-i18n="colApplyOn">Apply On</th>
+                  <th data-i18n="colStatus">Status</th>
+                  <th data-i18n="colGroup">Group</th>
                   <th></th>
                 </tr>
               </thead>
@@ -191,14 +195,14 @@
             <h4 id="group_rules_title">
               <span class="glyphicon glyphicon-chevron-down section-toggle" id="group_toggle"></span>
               <span class="group-color-dot" id="group_color_dot"></span>
-              <span id="group_rules_name">Group Rules</span>
+              <span id="group_rules_name" data-i18n="titleGroupRules">Group Rules</span>
             </h4>
             <div class="section-actions">
-              <button type="button" class="btn btn-warning btn-sm" id="toggle_group_rules_btn" title="Enable/Disable all group rules">
-                <span class="glyphicon glyphicon-off"></span> Toggle All
+              <button type="button" class="btn btn-warning btn-sm" id="toggle_group_rules_btn" data-i18n-title="tooltipToggleGroup">
+                <span class="glyphicon glyphicon-off"></span> <span data-i18n="btnToggleAll">Toggle All</span>
               </button>
-              <button type="button" class="btn btn-default btn-sm" id="edit_group_btn" title="Edit Group">
-                <span class="glyphicon glyphicon-pencil"></span> Edit Group
+              <button type="button" class="btn btn-default btn-sm" id="edit_group_btn" data-i18n-title="tooltipEditGroup">
+                <span class="glyphicon glyphicon-pencil"></span> <span data-i18n="btnEditGroup">Edit Group</span>
               </button>
             </div>
           </div>
@@ -207,16 +211,16 @@
             <!-- Group URL Filters (inline editable) -->
             <div class="group-filters-bar" id="group_filters_bar">
               <div class="group-filter-item">
-                <label>Default URL Filter:</label>
-                <input type="text" id="inline_default_url_filter" class="form_control" placeholder="applied to new rules">
+                <label data-i18n="labelDefaultUrlFilter">Default URL Filter:</label>
+                <input type="text" id="inline_default_url_filter" class="form_control" data-i18n-placeholder="placeholderNewFilter">
               </div>
               <div class="group-filter-item">
-                <label>Others URL Filters:</label>
+                <label data-i18n="labelOthersUrlFilters">Others URL Filters:</label>
                 <div id="inline_users_url_filters" class="inline-filters-list">
                   <!-- Dynamic filter inputs -->
                 </div>
                 <button type="button" class="btn btn-default btn-xs" id="add_inline_user_filter">
-                  <span class="glyphicon glyphicon-plus"></span> Add
+                  <span class="glyphicon glyphicon-plus"></span> <span data-i18n="btnAdd">Add</span>
                 </button>
               </div>
             </div>
@@ -225,13 +229,13 @@
               <thead>
                 <tr>
                   <th></th>
-                  <th>URL Filter</th>
-                  <th>Action</th>
-                  <th>Header Name</th>
-                  <th>Header Value</th>
-                  <th class="col-comment">Comment</th>
-                  <th>Apply On</th>
-                  <th>Status</th>
+                  <th data-i18n="colUrlFilter">URL Filter</th>
+                  <th data-i18n="colAction">Action</th>
+                  <th data-i18n="colHeaderName">Header Name</th>
+                  <th data-i18n="colHeaderValue">Header Value</th>
+                  <th class="col-comment" data-i18n="colComment">Comment</th>
+                  <th data-i18n="colApplyOn">Apply On</th>
+                  <th data-i18n="colStatus">Status</th>
                   <th></th>
                 </tr>
               </thead>
@@ -247,10 +251,10 @@
         <!-- ADD RULE BUTTON -->
         <div class="add-rule-bar">
           <button type="button" id="add_rule_button" class="btn btn-primary btn-sm">
-            <span class="glyphicon glyphicon-plus"></span> New Rule
+            <span class="glyphicon glyphicon-plus"></span> <span data-i18n="btnNewRule">New Rule</span>
           </button>
           <button type="button" id="save_button" class="btn btn-success btn-sm">
-            <span class="glyphicon glyphicon-save"></span> Save All
+            <span class="glyphicon glyphicon-save"></span> <span data-i18n="btnSave">Save All</span>
           </button>
         </div>
       </div>
@@ -261,27 +265,27 @@
   <!-- PARAMETERS SCREEN -->
   <div id="parameters_screen" class="parameters-screen" hidden>
     <h2 class="title">MODIFY HEADERS PLUS</h2>
-    <strong>Parameters:</strong>
+    <strong data-i18n="titleParameters">Parameters:</strong>
     <br/><br/>
     <label class="param-label">
-      <input type="checkbox" id="debug_mode"> Debug mode
+      <input type="checkbox" id="debug_mode"> <span data-i18n="labelDebugMode">Debug mode</span>
     </label>
     <br/>
     <label class="param-label">
-      <input type="checkbox" id="show_comments"> Show comments
+      <input type="checkbox" id="show_comments"> <span data-i18n="labelShowComments">Show comments</span>
     </label>
     <br/>
     <br/>
     <a href="#" id="exit_parameters_screen_button" class="btn btn-primary btn-sm" style="width:100px">
-      <span class="glyphicon glyphicon-step-backward"></span> Back
+      <span class="glyphicon glyphicon-step-backward"></span> <span data-i18n="btnBack">Back</span>
     </a>
   </div>
 
   <!-- FOOTER -->
   <div class="app-footer">
-    <em>* URL patterns use Chrome match pattern syntax. <a href="https://developer.chrome.com/extensions/match_patterns" target="_blank">Learn more.</a></em>
+    <em>* <span data-i18n="helpFooter">URL patterns use Chrome match pattern syntax.</span> <a href="https://developer.chrome.com/extensions/match_patterns" target="_blank" data-i18n="helpLearnMore">Learn more.</a></em>
     <a href="https://github.com/Andersoonalves/ModifyHeadersPlus" target="_blank" class="about-link">
-      <span class="glyphicon glyphicon-question-sign"></span> About
+      <span class="glyphicon glyphicon-question-sign"></span> <span data-i18n="aboutLink">About</span>
     </a>
   </div>
 
@@ -289,6 +293,7 @@
 </div>
 
   <script type="text/javascript" src="common.js"></script>
+  <script type="text/javascript" src="i18n.js"></script>
   <script type="text/javascript" src="regexps.js"></script>
   <script type="text/javascript" src="config.js"></script>
 

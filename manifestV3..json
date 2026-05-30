@@ -3,9 +3,12 @@
   "manifest_version": 3,
   "name": "Modify Headers Plus",
   "version": "2.0.0",
+  "default_locale": "en",
   "homepage_url": "https://github.com/Andersoonalves/ModifyHeadersPlus",
   "icons": {
-    "48": "icons/modify-48.png"
+    "16": "icons/modify-16.png",
+    "48": "icons/modify-48.png",
+    "128": "icons/modify-128.png"
   },
   "permissions": [
     "activeTab",
@@ -24,5 +27,11 @@
   },
   "background": {
     "service_worker": "service-worker.js"
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["_locales/*/messages.json"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }

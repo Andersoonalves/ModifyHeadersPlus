@@ -1104,6 +1104,41 @@ body {
 }
 
 /* ===========================
+   LANGUAGE SELECTOR
+   =========================== */
+
+.lang-selector {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.lang-btn {
+  width: 28px;
+  height: 20px;
+  border: 2px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.5;
+  transition: opacity 0.2s, border-color 0.2s, transform 0.15s;
+  background: none;
+  line-height: 1;
+  font-size: 16px;
+}
+
+.lang-btn:hover {
+  opacity: 0.8;
+  transform: scale(1.1);
+}
+
+.lang-btn.active {
+  opacity: 1;
+  border-color: var(--accent-color);
+}
+
+/* ===========================
    TOOLTIPS
    =========================== */
 

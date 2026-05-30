@@ -128,4 +128,4 @@ The code is Open Source under Mozilla Public License 2.0
 
 ## Repository
 
-GitHub: https://github.com/anderson/SimpleModifyHeadersNGX
+GitHub: https://github.com/Andersoonalves/ModifyHeadersPlus

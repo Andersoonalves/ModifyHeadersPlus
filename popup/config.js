@@ -1616,3 +1616,104 @@ function validateUrlPatternInput(input) {
         return false;
     }
 }
+
+function addMockGroups() {
+    const mockGroups = [
+        {
+            name: 'APIs Production',
+            color: '#4CAF50',
+            urls: ['https://api.production.com/*'],
+            default_url_filter: 'api',
+            users_url_filter: ['v1', 'v2', 'auth']
+        },
+        {
+            name: 'Dev Local',
+            color: '#2196F3',
+            urls: ['http://localhost:*/*', 'http://127.0.0.1:*/*'],
+            default_url_filter: '',
+            users_url_filter: ['localhost', 'dev']
+        },
+        {
+            name: 'Staging Environment',
+            color: '#FF9800',
+            urls: ['https://staging.example.com/*'],
+            default_url_filter: 'staging',
+            users_url_filter: ['test', 'preview']
+        },
+        {
+            name: 'CDN & Assets',
+            color: '#9C27B0',
+            urls: ['https://cdn.example.com/*', 'https://assets.example.com/*'],
+            default_url_filter: '',
+            users_url_filter: ['images', 'scripts', 'styles']
+        }
+    ];
+
+    const mockRules = {
+        'APIs Production': [
+            { header_name: 'Authorization', header_value: 'Bearer prod-token-123', action: 'add', apply_on: 'req', comment: 'Production auth token' },
+            { header_name: 'X-API-Key', header_value: 'key-prod-abc', action: 'add', apply_on: 'req', comment: 'API key for production' },
+            { header_name: 'X-Request-ID', header_value: 'req-{{timestamp}}', action: 'add', apply_on: 'req', comment: 'Request tracing' },
+            { header_name: 'Cache-Control', header_value: 'no-cache', action: 'modify', apply_on: 'req', comment: 'Disable cache for API' },
+            { header_name: 'X-RateLimit-Limit', header_value: '1000', action: 'add', apply_on: 'res', comment: 'Rate limit header' }
+        ],
+        'Dev Local': [
+            { header_name: 'X-Debug-Mode', header_value: 'true', action: 'add', apply_on: 'req', comment: 'Enable debug mode' },
+            { header_name: 'Origin', header_value: 'http://localhost:3000', action: 'modify', apply_on: 'req', comment: 'CORS origin override' },
+            { header_name: 'X-Forwarded-For', header_value: '127.0.0.1', action: 'add', apply_on: 'req', comment: 'Local IP header' },
+            { header_name: 'Accept', header_value: 'application/json', action: 'modify', apply_on: 'req', comment: 'Force JSON response' },
+            { header_name: 'X-Dev-User', header_value: 'admin@test.com', action: 'add', apply_on: 'req', comment: 'Dev user impersonation' }
+        ],
+        'Staging Environment': [
+            { header_name: 'X-Environment', header_value: 'staging', action: 'add', apply_on: 'req', comment: 'Identify staging env' },
+            { header_name: 'Authorization', header_value: 'Bearer staging-token', action: 'add', apply_on: 'req', comment: 'Staging auth' },
+            { header_name: 'X-Feature-Flag', header_value: 'new-feature-v2', action: 'add', apply_on: 'req', comment: 'Feature flag toggle' },
+            { header_name: 'Content-Security-Policy', header_value: "default-src 'self'", action: 'add', apply_on: 'res', comment: 'CSP for staging' },
+            { header_name: 'X-Frame-Options', header_value: 'DENY', action: 'add', apply_on: 'res', comment: 'Clickjacking protection' }
+        ],
+        'CDN & Assets': [
+            { header_name: 'Access-Control-Allow-Origin', header_value: '*', action: 'add', apply_on: 'res', comment: 'CORS for CDN' },
+            { header_name: 'Cache-Control', header_value: 'public, max-age=31536000', action: 'add', apply_on: 'res', comment: 'Long cache for assets' },
+            { header_name: 'X-Content-Type-Options', header_value: 'nosniff', action: 'add', apply_on: 'res', comment: 'MIME type sniffing' },
+            { header_name: 'Vary', header_value: 'Accept-Encoding', action: 'add', apply_on: 'res', comment: 'Vary header for CDN' },
+            { header_name: 'ETag', header_value: '"mock-etag-123"', action: 'modify', apply_on: 'res', comment: 'ETag override' }
+        ]
+    };
+
+    let counter = Date.now();
+
+    mockGroups.forEach(groupData => {
+        const groupId = 'group_' + counter++;
+        const group = {
+            id: groupId,
+            name: groupData.name,
+            color: groupData.color,
+            urls: groupData.urls,
+            default_url_filter: groupData.default_url_filter,
+            users_url_filter: groupData.users_url_filter,
+            status: 'on'
+        };
+        config.groups.push(group);
+
+        const rules = mockRules[groupData.name] || [];
+        rules.forEach(ruleData => {
+            config.headers.push({
+                id: 'rule_' + counter++,
+                group_id: groupId,
+                url_contains: groupData.default_url_filter || '',
+                action: ruleData.action,
+                header_name: ruleData.header_name,
+                header_value: ruleData.header_value,
+                comment: ruleData.comment,
+                apply_on: ruleData.apply_on,
+                status: 'off'
+            });
+        });
+    });
+
+    saveData();
+    renderGroupsList();
+    renderRules();
+    updateBadges();
+    alert('4 mock groups added successfully!');
+}
